@@ -1,0 +1,51 @@
+{
+  "service": "SSH",
+  "port": 22,
+  "checklist": [
+    {
+      "id": "ssh_banner",
+      "title": "Banner Grabbing & Service Fingerprinting",
+      "description": "Identify the exact OpenSSH version and underlying OS distribution.",
+      "commands": [
+        "nc -vn {target_ip} 22",
+        "nmap -sV -p 22 {target_ip}"
+      ]
+    },
+    {
+      "id": "ssh_ciphers",
+      "title": "Weak Ciphers & Algorithms Check",
+      "description": "Enumerate supported algorithms to find deprecated or vulnerable ciphers.",
+      "commands": [
+        "nmap --script ssh2-enum-algos -p 22 {target_ip}",
+        "ssh -v {target_ip}"
+      ]
+    },
+    {
+      "id": "ssh_user_enum",
+      "title": "Username Enumeration",
+      "description": "Attempt to enumerate valid usernames if older OpenSSH versions (<= 7.7) are in use.",
+      "commands": [
+        "nmap --script ssh-auth-methods --script-args=\"ssh.user=<username>\" -p 22 {target_ip}",
+        "searchsploit -m 40136"
+      ]
+    },
+    {
+      "id": "ssh_bruteforce",
+      "title": "Credential Brute-Forcing",
+      "description": "Test weak or default passwords against known user accounts.",
+      "commands": [
+        "hydra -L users.txt -P /usr/share/wordlists/rockyou.txt ssh://{target_ip} -t 4",
+        "nmap --script ssh-brute -p 22 {target_ip}"
+      ]
+    },
+    {
+      "id": "ssh_vuln_search",
+      "title": "Vulnerability Research & Exploit Check",
+      "description": "Check for known vulnerabilities like Debian PRNG or specific OpenSSH CVEs.",
+      "commands": [
+        "searchsploit openssh <version>",
+        "nmap --script ssh-run,sshv1 -p 22 {target_ip}"
+      ]
+    }
+  ]
+}

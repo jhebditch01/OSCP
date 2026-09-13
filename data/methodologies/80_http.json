@@ -1,0 +1,36 @@
+{
+  "service": "HTTP",
+  "port": 80,
+  "tasks": [
+    {
+      "id": "http_1",
+      "title": "Technology Fingerprinting",
+      "commands": [
+        "whatweb http://{target_ip}/",
+        "curl -I http://{target_ip}/"
+      ]
+    },
+    {
+      "id": "http_2",
+      "title": "Directory Brute-Forcing (Feroxbuster)",
+      "commands": [
+        "feroxbuster -u http://{target_ip}/ -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -x php,txt,html",
+        "gobuster dir -u http://{target_ip}/ -w /usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt"
+      ]
+    },
+    {
+      "id": "http_3",
+      "title": "Vulnerability Scanning",
+      "commands": [
+        "nikto -h http://{target_ip}/"
+      ]
+    },
+    {
+      "id": "http_4",
+      "title": "Manual Source Code & Robots.txt Check",
+      "commands": [
+        "curl -s http://{target_ip}/robots.txt"
+      ]
+    }
+  ]
+}

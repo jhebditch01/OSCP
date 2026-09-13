@@ -1,0 +1,30 @@
+{
+  "service": "SMB",
+  "port": 445,
+  "tasks": [
+    {
+      "id": "smb_1",
+      "title": "Null Session & Guest Access Check",
+      "commands": [
+        "netexec smb {target_ip} -u '' -p ''",
+        "netexec smb {target_ip} -u 'guest' -p '' --shares",
+        "smbclient -L //{target_ip}/ -N"
+      ]
+    },
+    {
+      "id": "smb_2",
+      "title": "Enumerate Shares & Permissions",
+      "commands": [
+        "smbmap -H {target_ip}",
+        "enum4linux-ng -A {target_ip}"
+      ]
+    },
+    {
+      "id": "smb_3",
+      "title": "Vulnerability Scanning (MS17-010 / EternalBlue)",
+      "commands": [
+        "nmap -p 445 --script smb-vuln* {target_ip}"
+      ]
+    }
+  ]
+}

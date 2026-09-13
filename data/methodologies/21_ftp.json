@@ -1,0 +1,59 @@
+{
+  "service": "FTP",
+  "port": 21,
+  "checklist": [
+    {
+      "id": "ftp_banner",
+      "title": "Banner Grabbing & Service Fingerprinting",
+      "description": "Identify software vendor, precise version, and OS hints.",
+      "commands": [
+        "nc -vn {target_ip} 21",
+        "nmap -sV -p 21 {target_ip}"
+      ]
+    },
+    {
+      "id": "ftp_anon",
+      "title": "Anonymous Auth & Permissions Check",
+      "description": "Verify anonymous access (`anonymous:anonymous` or `ftp:ftp`) and test read/write privileges.",
+      "commands": [
+        "nmap --script ftp-anon,ftp-bounce -p 21 {target_ip}",
+        "ftp {target_ip}"
+      ]
+    },
+    {
+      "id": "ftp_recursion",
+      "title": "Recursive Directory & Hidden File Listing",
+      "description": "Recursively download files and check for hidden dotfiles (`.bak`, `.config`, SSH keys).",
+      "commands": [
+        "wget -r --no-passive-ftp ftp://anonymous:anonymous@{target_ip}/",
+        "nmap --script ftp-syst,ftp-ls -p 21 {target_ip}"
+      ]
+    },
+    {
+      "id": "ftp_bounce_mode",
+      "title": "Passive vs. Active Mode & Bounce Scanning",
+      "description": "Determine host firewall behavior with PASV/PORT commands and test FTP bounce support.",
+      "commands": [
+        "nmap -b {target_ip} 21"
+      ]
+    },
+    {
+      "id": "ftp_bruteforce",
+      "title": "Credential Brute-Forcing",
+      "description": "Test default passwords and spray common user lists if anonymous access is disabled.",
+      "commands": [
+        "hydra -L /usr/share/wordlists/metasploit/namelist.txt -P /usr/share/wordlists/rockyou.txt ftp://{target_ip} -t 4",
+        "nmap --script ftp-brute -p 21 {target_ip}"
+      ]
+    },
+    {
+      "id": "ftp_vuln_search",
+      "title": "Known Vulnerability Lookup",
+      "description": "Check Exploit-DB and NSE vulnerability scripts against the exact FTP server version.",
+      "commands": [
+        "searchsploit ftp <version>",
+        "nmap --script ftp-vuln* -p 21 {target_ip}"
+      ]
+    }
+  ]
+}

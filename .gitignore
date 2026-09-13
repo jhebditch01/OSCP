@@ -1,0 +1,43 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.venv/
+venv/
+OSCP_venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Packaging & Distribution
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# IDE & Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
+
+# OSCP Project-Specific Data (Scans & Session State)
+scans/*
+!scans/.gitkeep
+sessions/*
+!sessions/.gitkeep
+*.xml
+*.nmap
+*.gnmap
+
+# Secrets & Environment Variables
+.env
+.env.*
+*.log
