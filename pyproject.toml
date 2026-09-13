@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oscp-checklist"
+version = "0.1.0"
+description = "State-driven interactive OSCP methodology engine and Nmap parser"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "rich>=13.0.0",
+    "textual>=0.50.0",
+]
+
+[project.scripts]
+oscp-check = "src.main:main"
