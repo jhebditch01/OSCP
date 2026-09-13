@@ -1,0 +1,1 @@
+This is a interactive python script that acts as a checklist, it will basically give you the queries you need to run and you copy and paste them into Kali terminal. Once you have your xml file from nmap you will be able to analyze it in the script (no AI going on just good old fashioned coding) which will list all relevant investigation paths to go down.
