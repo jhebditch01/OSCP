@@ -4,7 +4,7 @@ from datetime import datetime
 import xml.etree.ElementTree as ET
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, VerticalScroll
-from textual.widgets import Button, Footer, Header, Input, Markdown, Static, Tree, Select
+from textual.widgets import Button, Footer, Header, Input, Markdown, Static, Tree, Select, TextArea, Label
 
 # Safely import the SessionManager from storage.py
 try:
@@ -53,7 +53,6 @@ class NmapParser:
         except Exception:
             return None
 
-
 class OSCPChecklistApp(App):
     """Interactive TUI for OSCP Methodology, Nmap Parsing, and Report Generation."""
 
@@ -70,6 +69,9 @@ class OSCPChecklistApp(App):
     #xml-action-bar { height: auto; padding: 1 0; margin-top: 1; border-top: solid $accent; }
     #xml-path-input { width: 75%; }
     #parse-xml-btn { width: 25%; }
+    #notes-container { height: auto; padding: 1 0; border-top: solid $accent; margin-top: 1; display: none; }
+    #notes-container.-visible { display: block; }
+    #task-notes { height: 10; margin-bottom: 1; }
     """
 
     BINDINGS = [
@@ -111,6 +113,12 @@ class OSCPChecklistApp(App):
             with VerticalScroll(id="main-content"):
                 yield Markdown("# Welcome to OSCP Copilot\n\nLoad a target or parse an XML scan below.", id="task-view")
                 
+                # New Notes Section (Hidden by default)
+                with Container(id="notes-container"):
+                    yield Label("📝 Operational Notes for this Task:", id="notes-label")
+                    yield TextArea(id="task-notes")
+                    yield Button("Save Note", id="save-note-btn", variant="primary")
+
                 with Horizontal(id="xml-action-bar"):
                     yield Input(placeholder="Path to XML file (e.g., scans/scan.xml)...", id="xml-path-input")
                     yield Button("Analyze XML", id="parse-xml-btn", variant="success")
@@ -132,6 +140,15 @@ class OSCPChecklistApp(App):
             self.process_xml_input()
         elif event.button.id == "report-btn":
             self.action_generate_report()
+        elif event.button.id == "save-note-btn":
+            tree = self.query_one("#checklist-tree", Tree)
+            node = tree.cursor_node
+            if node and hasattr(node, "data"):
+                task_id = node.data.get("id")
+                note_text = self.query_one("#task-notes", TextArea).text
+                if self.session and task_id:
+                    self.session.mark_completed(task_id, notes=note_text)
+                    self.query_one("#notes-label", Label).update("📝 Operational Notes for this Task: [green](Saved!)[/green]")
 
     def _generate_ports_table(self) -> str:
         if not self.ports_data:
@@ -195,6 +212,23 @@ class OSCPChecklistApp(App):
         else:
             markdown_widget.update(f"# Target Loaded: {self.target_ip}\n\nProvide an XML scan below to discover services.")
 
+    def _add_task_leaf(self, parent_node, task_data):
+        """Helper to render task items cleanly and check saved completion state."""
+        is_completed = False
+        task_id = task_data.get("id")
+        
+        if self.session and task_id and task_id in self.session.state.get("completed_tasks", []):
+            is_completed = True
+            
+        title = task_data.get('title', 'Task')
+        if is_completed:
+            leaf = parent_node.add_leaf(f"[X] [line-through]{title}[/line-through]")
+        else:
+            leaf = parent_node.add_leaf(f"[ ] {title}")
+            
+        leaf.data = task_data
+        return leaf
+
     def rebuild_tree(self) -> None:
         tree = self.query_one("#checklist-tree", Tree)
         tree.clear()
@@ -205,8 +239,7 @@ class OSCPChecklistApp(App):
         
         if baseline_schema and "tasks" in baseline_schema:
             for task in baseline_schema["tasks"]:
-                leaf = recon.add_leaf(f"[ ] {task.get('title', 'Task')}")
-                leaf.data = task
+                self._add_task_leaf(recon, task)
         else:
             recon.add_leaf(f"[ ] Nmap Fast Scan ({self.target_ip})")
             recon.add_leaf(f"[ ] Nmap Full TCP (-p-) ({self.target_ip})")
@@ -219,26 +252,59 @@ class OSCPChecklistApp(App):
                 port = str(p["port"])
                 svc = str(p.get("service", "unknown")).lower()
                 
+                # Nmap translation rule for SMB
+                if svc == "microsoft-ds":
+                    svc = "smb"
+                
                 node = services.add(f"Port {port} ({svc.upper()})", expand=True)
                 schema = self.load_json_methodology(f"data/methodologies/{port}_{svc}.json")
                 
                 if schema:
-                    tasks = schema.get("tasks", schema.get("checklist", []))
-                    for t in tasks:
-                        leaf = node.add_leaf(f"[ ] {t.get('title', 'Task')}")
-                        leaf.data = t
+                    if "categories" in schema:
+                        for cat in schema["categories"]:
+                            cat_node = node.add(cat.get("category", "Category"), expand=False)
+                            for t in cat.get("tasks", []):
+                                self._add_task_leaf(cat_node, t)
+                    else:
+                        tasks = schema.get("tasks", schema.get("checklist", []))
+                        for t in tasks:
+                            self._add_task_leaf(node, t)
                 else:
                     node.add_leaf("[ ] Banner Grabbing & Enum")
 
-        post = tree.root.add("3. Post-Exploitation")
-        post.add_leaf("[ ] Local Enum (PrivEsc)")
+        # Post-Exploitation Loading
+        post = tree.root.add("3. Post-Exploitation", expand=False)
+        post_schema = self.load_json_methodology("data/post_exploitation.json")
+        
+        if post_schema and "os_environments" in post_schema:
+            for env in post_schema["os_environments"]:
+                # Create OS level nodes (Windows, Linux, Pivoting)
+                env_node = post.add(env.get("os", "Environment"), expand=False)
+                
+                # Create Category level nodes (File Transfers, Enumeration, etc.)
+                for cat in env.get("categories", []):
+                    cat_node = env_node.add(cat.get("category", "Category"), expand=False)
+                    
+                    # Create the actual tasks
+                    for t in cat.get("tasks", []):
+                        self._add_task_leaf(cat_node, t)
+        else:
+            post.add_leaf("⚠️ Could not load data/post_exploitation.json")
 
     def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
         data = getattr(event.node, "data", None)
         md = self.query_one("#task-view", Markdown)
+        notes_container = self.query_one("#notes-container", Container)
+        text_area = self.query_one("#task-notes", TextArea)
+        notes_label = self.query_one("#notes-label", Label)
+        
+        # Reset the notes label text just in case it said "Saved!" previously
+        notes_label.update("📝 Operational Notes for this Task:")
         
         if data and isinstance(data, dict):
+            task_id = data.get("id")
             content = f"# {data.get('title', 'Task')}\n\n"
+            
             if data.get("description"):
                 content += f"*{data.get('description')}*\n\n"
                 
@@ -247,20 +313,36 @@ class OSCPChecklistApp(App):
                 content += f"{cmd.replace('{target_ip}', self.target_ip)}\n\n"
             content += "```\n\n*Press `c` to toggle completion status.*"
             md.update(content)
+
+            # Handle Notes UI
+            notes_container.add_class("-visible")
+            if self.session and task_id and task_id in self.session.state.get("notes", {}):
+                text_area.text = self.session.state["notes"][task_id]
+            else:
+                text_area.text = ""
         else:
             label = str(event.node.label).replace("[ ] ", "").replace("[X] ", "")
             md.update(f"# Category: {label}\n\nTarget IP: `{self.target_ip}`\nSelect a sub-task to view executable commands.")
+            notes_container.remove_class("-visible")
 
     def action_toggle_complete(self) -> None:
         tree = self.query_one("#checklist-tree", Tree)
         node = tree.cursor_node
-        if node and node.is_leaf:
+        if node and node.is_leaf and hasattr(node, "data"):
             label = str(node.label)
+            task_id = node.data.get("id")
+            
             if label.startswith("[ ]"):
                 node.set_label(f"[X] [line-through]{label[4:]}[/line-through]")
+                if self.session and task_id:
+                    current_notes = self.query_one("#task-notes", TextArea).text
+                    self.session.mark_completed(task_id, notes=current_notes)
+                    
             elif label.startswith("[X]"):
                 clean = label.replace("[X] [line-through]", "").replace("[/line-through]", "").strip()
                 node.set_label(f"[ ] {clean}")
+                if self.session and task_id:
+                    self.session.remove_completed(task_id)
 
     def action_generate_report(self) -> None:
         tree = self.query_one("#checklist-tree", Tree)

