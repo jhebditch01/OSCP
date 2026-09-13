@@ -1,66 +1,46 @@
 {
-  "stage_1_rapid": {
-    "subnet_discovery": [
-      {
-        "id": "ping_sweep",
-        "name": "Subnet Host Discovery (Ping Sweep)",
-        "command": "nmap -v -sn {target_subnet} -oG scans/host_discovery.gnmap && grep Up scans/host_discovery.gnmap | cut -d ' ' -f 2 > scans/live_hosts.txt",
-        "description": "Fast ICMP/ARP host discovery across a CIDR block."
-      },
-      {
-        "id": "syn_sweep",
-        "name": "Subnet Host Discovery (SYN Sweep)",
-        "command": "sudo nmap -sS -v {target_subnet} -oG scans/syn_discovery.gnmap && grep open scans/syn_discovery.gnmap | cut -d ' ' -f 2 > scans/live_hosts.txt",
-        "description": "SYN sweep to discover hosts blocking ICMP pings."
-      }
-    ],
-    "host_rapid": [
-      {
-        "id": "top_1000_tcp",
-        "name": "Rapid Top 1000 TCP Scan",
-        "command": "sudo nmap -sS --top-ports 1000 -min-rate 1000 {target_ip} -oN scans/{target_ip}_rapid_tcp.nmap -oX scans/{target_ip}_rapid.xml",
-        "description": "Quick port sweep to immediately surface low-hanging fruit."
-      },
-      {
-        "id": "fast_udp",
-        "name": "Top UDP Port Scan",
-        "command": "sudo nmap -F -sU -sV {target_ip} -oN scans/{target_ip}_udp_fast.nmap",
-        "description": "Fast UDP check for common services like SNMP (161), NetBIOS (137), TFTP (69), and DNS (53)."
-      }
-    ]
-  },
-  "stage_2_accurate": {
-    "host_deep": [
-      {
-        "id": "full_tcp_all_ports",
-        "name": "Full 65k TCP Port & Service Version Scan",
-        "command": "sudo nmap -sS -sC -sV -p 1-65535 {target_ip} -oN scans/{target_ip}_tcp_full.nmap -oX scans/{target_ip}_tcp_full.xml",
-        "description": "Comprehensive scan across all 65,535 ports with default scripts and version detection."
-      },
-      {
-        "id": "banner_xml_inspect",
-        "name": "Full Banner Inspection (Connect Scan)",
-        "command": "sudo nmap -sT -sU -A -p 1-65535 {target_ip} -oX scans/{target_ip}_banner_full.xml",
-        "description": "Deep banner inspection writing XML output for automatic parser ingestion into the engine."
-      },
-      {
-        "id": "os_fingerprint",
-        "name": "OS Fingerprint Detection",
-        "command": "sudo nmap -O --osscan-guess {target_ip} -oN scans/{target_ip}_os.nmap",
-        "description": "Aggressive OS guesswork using TCP/IP stack fingerprinting."
-      }
-    ]
-  },
-  "stage_3_targeted": {
-    "service_scripts": [
-      {
-        "service": "smb",
-        "command": "sudo nmap -p 139,445 --script vuln,smb-enum-shares,smb-enum-users {target_ip} -oN scans/{target_ip}_smb.nmap"
-      },
-      {
-        "service": "http",
-        "command": "sudo nmap -p {port} --script http-enum,http-headers,http-methods {target_ip} -oN scans/{target_ip}_http_{port}.nmap"
-      }
-    ]
-  }
+  "phase": "Initial Reconnaissance",
+  "tasks": [
+    {
+      "id": "ping_sweep",
+      "title": "Subnet Host Discovery (Ping/SYN Sweep)",
+      "description": "Fast discovery across a CIDR block to find alive targets.",
+      "commands": [
+        "nmap -v -sn {target_subnet} -oG scans/host_discovery.gnmap && grep Up scans/host_discovery.gnmap | cut -d ' ' -f 2 > scans/live_hosts.txt",
+        "sudo nmap -sS -v {target_subnet} -oG scans/syn_discovery.gnmap && grep open scans/syn_discovery.gnmap | cut -d ' ' -f 2 > scans/live_hosts.txt"
+      ]
+    },
+    {
+      "id": "top_1000_tcp",
+      "title": "Rapid Top 1000 TCP Scan",
+      "description": "Quick port sweep to immediately surface low-hanging fruit.",
+      "commands": [
+        "sudo nmap -sS --top-ports 1000 -min-rate 1000 {target_ip} -oN scans/{target_ip}_rapid_tcp.nmap -oX scans/{target_ip}_rapid.xml"
+      ]
+    },
+    {
+      "id": "fast_udp",
+      "title": "Top UDP Port Scan",
+      "description": "Fast UDP check for common services like SNMP (161), TFTP (69), and DNS (53).",
+      "commands": [
+        "sudo nmap -F -sU -sV {target_ip} -oN scans/{target_ip}_udp_fast.nmap -oX scans/{target_ip}_udp_fast.xml"
+      ]
+    },
+    {
+      "id": "full_tcp_all_ports",
+      "title": "Full 65k TCP Port Scan",
+      "description": "Comprehensive scan across all 65,535 ports with default scripts and version detection.",
+      "commands": [
+        "sudo nmap -sS -sC -sV -p 1-65535 {target_ip} -oN scans/{target_ip}_tcp_full.nmap -oX scans/{target_ip}_tcp_full.xml"
+      ]
+    },
+    {
+      "id": "os_fingerprint",
+      "title": "OS Fingerprint Detection",
+      "description": "Aggressive OS guesswork using TCP/IP stack fingerprinting.",
+      "commands": [
+        "sudo nmap -O --osscan-guess {target_ip} -oN scans/{target_ip}_os.nmap"
+      ]
+    }
+  ]
 }

