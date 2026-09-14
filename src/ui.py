@@ -61,11 +61,13 @@ class OSCPChecklistApp(App):
 
     CSS = """
     Screen { layout: vertical; }
-    #target-setup { height: auto; padding: 1 2; background: $panel; border-bottom: heavy $accent; }
+    #target-setup { height: auto; padding: 1 2; background: $panel; border-bottom: heavy$accent; }
     #workspace { height: 1fr; }
-    #sidebar { width: 35%; height: 100%; border-right: heavy $accent; background: $panel; }
+    #sidebar { width: 35%; height: 100%; border-right: heavy $accent; background:$panel; }
+    
     #main-content { width: 65%; height: 100%; padding: 1 2; }
-    #target-banner { height: 3; content-align: center middle; background: $primary-background; border-bottom: solid $accent; text-style: bold; }
+    
+    #target-banner { height: 3; content-align: center middle; background: $primary-background; border-bottom: solid$accent; text-style: bold; }
     #xml-action-bar { height: auto; padding: 1 0; margin-top: 1; border-top: solid $accent; }
     #xml-path-input { width: 75%; }
     #parse-xml-btn { width: 25%; }
@@ -110,10 +112,10 @@ class OSCPChecklistApp(App):
                 yield Static(f"🎯 Target: {self.target_ip} | 🖥️ OS: {self.target_os}", id="target-banner")
                 yield Tree("Methodology Pipeline", id="checklist-tree")
             
+            # Using standard VerticalScroll so the Y-axis scrolls, but X-axis text wraps
             with VerticalScroll(id="main-content"):
                 yield Markdown("# Welcome to OSCP Copilot\n\nLoad a target or parse an XML scan below.", id="task-view")
                 
-                # New Notes Section (Hidden by default)
                 with Container(id="notes-container"):
                     yield Label("📝 Operational Notes for this Task:", id="notes-label")
                     yield TextArea(id="task-notes")
@@ -213,7 +215,6 @@ class OSCPChecklistApp(App):
             markdown_widget.update(f"# Target Loaded: {self.target_ip}\n\nProvide an XML scan below to discover services.")
 
     def _add_task_leaf(self, parent_node, task_data):
-        """Helper to render task items cleanly and check saved completion state."""
         is_completed = False
         task_id = task_data.get("id")
         
@@ -252,7 +253,6 @@ class OSCPChecklistApp(App):
                 port = str(p["port"])
                 svc = str(p.get("service", "unknown")).lower()
                 
-                # Nmap translation rule for SMB
                 if svc == "microsoft-ds":
                     svc = "smb"
                 
@@ -272,24 +272,30 @@ class OSCPChecklistApp(App):
                 else:
                     node.add_leaf("[ ] Banner Grabbing & Enum")
 
-        # Post-Exploitation Loading
         post = tree.root.add("3. Post-Exploitation", expand=False)
-        post_schema = self.load_json_methodology("data/post_exploitation.json")
-        
-        if post_schema and "os_environments" in post_schema:
-            for env in post_schema["os_environments"]:
-                # Create OS level nodes (Windows, Linux, Pivoting)
+
+        win_schema = self.load_json_methodology("data/post_exploitation_windows.json")
+        if win_schema and "os_environments" in win_schema:
+            for env in win_schema["os_environments"]:
                 env_node = post.add(env.get("os", "Environment"), expand=False)
-                
-                # Create Category level nodes (File Transfers, Enumeration, etc.)
                 for cat in env.get("categories", []):
                     cat_node = env_node.add(cat.get("category", "Category"), expand=False)
-                    
-                    # Create the actual tasks
                     for t in cat.get("tasks", []):
                         self._add_task_leaf(cat_node, t)
         else:
-            post.add_leaf("⚠️ Could not load data/post_exploitation.json")
+            post.add_leaf("⚠️ Missing data/post_exploitation_windows.json")
+
+        # Load Linux Post-Exploitation
+        lin_schema = self.load_json_methodology("data/post_exploitation_linux.json")
+        if lin_schema and "os_environments" in lin_schema:
+            for env in lin_schema["os_environments"]:
+                env_node = post.add(env.get("os", "Environment"), expand=False)
+                for cat in env.get("categories", []):
+                    cat_node = env_node.add(cat.get("category", "Category"), expand=False)
+                    for t in cat.get("tasks", []):
+                        self._add_task_leaf(cat_node, t)
+        else:
+            post.add_leaf("⚠️ Missing data/post_exploitation_linux.json")
 
     def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
         data = getattr(event.node, "data", None)
@@ -298,7 +304,6 @@ class OSCPChecklistApp(App):
         text_area = self.query_one("#task-notes", TextArea)
         notes_label = self.query_one("#notes-label", Label)
         
-        # Reset the notes label text just in case it said "Saved!" previously
         notes_label.update("📝 Operational Notes for this Task:")
         
         if data and isinstance(data, dict):
@@ -308,13 +313,14 @@ class OSCPChecklistApp(App):
             if data.get("description"):
                 content += f"*{data.get('description')}*\n\n"
                 
-            content += "### Commands:\n```bash\n"
+            # Formatting changed here: using wrapped inline code bullets instead of ``` blocks
+            content += "### Commands:\n\n"
             for cmd in data.get("commands", []):
-                content += f"{cmd.replace('{target_ip}', self.target_ip)}\n\n"
-            content += "```\n\n*Press `c` to toggle completion status.*"
+                formatted_cmd = cmd.replace('{target_ip}', self.target_ip)
+                content += f"- `{formatted_cmd}`\n\n"
+            content += "---\n*Press `c` to toggle completion status.*"
             md.update(content)
 
-            # Handle Notes UI
             notes_container.add_class("-visible")
             if self.session and task_id and task_id in self.session.state.get("notes", {}):
                 text_area.text = self.session.state["notes"][task_id]
@@ -358,6 +364,7 @@ class OSCPChecklistApp(App):
                 title = str(node.label).replace("[X] [line-through]", "").replace("[/line-through]", "").strip()
                 report_lines.append(f"### {title}")
                 if hasattr(node, "data") and isinstance(node.data, dict):
+                    # Output keeps the standard block format for the final report
                     report_lines.append("```bash")
                     for cmd in node.data.get("commands", []):
                         report_lines.append(cmd.replace("{target_ip}", self.target_ip))

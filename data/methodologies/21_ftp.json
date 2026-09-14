@@ -1,82 +1,137 @@
 {
   "service": "FTP",
   "port": 21,
-  "tasks": [
+  "categories": [
     {
-      "id": "ftp_anon",
-      "title": "Anonymous Login (CLI)",
-      "description": "Attempt to log in using Username - ANONYMOUS and Password - blank.",
-      "commands": [
-        "ftp -A {target_ip} 21"
+      "category": "1. Recon & Banner Enumeration",
+      "tasks": [
+        {
+          "id": "ftp_banner_probe",
+          "title": "Service Banner & Script Scan",
+          "description": "Probe the exact FTP daemon version and run default NSE enumeration scripts to detect anonymous access and configuration flags.",
+          "commands": [
+            "nc -vn {target_ip} 21",
+            "nmap -sV -sC -p 21 {target_ip}",
+            "nmap --script \"ftp-* and not brute\" -p 21 {target_ip}"
+          ]
+        },
+        {
+          "id": "ftp_tls_check",
+          "title": "FTPS / TLS Certificate Inspection",
+          "description": "Check if Explicit FTPS (AUTH TLS) is supported and dump the certificate details to identify hostnames, internal domains, or emails.",
+          "commands": [
+            "openssl s_client -connect {target_ip}:21 -starttls ftp"
+          ]
+        }
       ]
     },
     {
-      "id": "ftp_browser_anon",
-      "title": "Anonymous Login (Web Browser)",
-      "description": "Navigate to the FTP service using a web browser to check for visual directory listings and easy file retrieval.",
-      "commands": [
-        "firefox ftp://anonymous:anonymous@{target_ip}/",
-        "firefox ftp://{target_ip}/"
+      "category": "2. Anonymous & Unauthenticated Access",
+      "tasks": [
+        {
+          "id": "ftp_anon_cli",
+          "title": "Anonymous CLI Connection",
+          "description": "Attempt login using anonymous:anonymous or blank credentials. Use passive mode (-p) if active mode data connections fail.",
+          "commands": [
+            "ftp -A {target_ip} 21",
+            "ftp -p {target_ip} 21"
+          ]
+        },
+        {
+          "id": "ftp_browser_anon",
+          "title": "Anonymous Web Browser Access",
+          "description": "Browse the FTP root via a web browser for rapid directory exploration and inline document viewing.",
+          "commands": [
+            "firefox ftp://anonymous:anonymous@{target_ip}/",
+            "firefox ftp://{target_ip}/"
+          ]
+        },
+        {
+          "id": "ftp_wget_mirror",
+          "title": "Recursive Anonymous Mirroring (Wget)",
+          "description": "Mirror the entire directory tree locally in one pass without navigating the interactive prompt.",
+          "commands": [
+            "wget -m --no-passive ftp://anonymous:anonymous@{target_ip}",
+            "wget -r --no-parent ftp://anonymous:anonymous@{target_ip}/"
+          ]
+        }
       ]
     },
     {
-      "id": "ftp_download_all",
-      "title": "Download Directory Contents",
-      "description": "Turn the interactive prompt off and use Mget * from within the directory to download all contents.",
-      "commands": [
-        "prompt off",
-        "mget *"
+      "category": "3. File Operations & Web Root Correlation",
+      "tasks": [
+        {
+          "id": "ftp_hidden_files",
+          "title": "List Hidden Files & Perms",
+          "description": "List files with detailed attributes and show dotfiles (.bashrc, .ssh, .htaccess, web.config) that standard listings hide.",
+          "commands": [
+            "ls -la",
+            "dir -a"
+          ]
+        },
+        {
+          "id": "ftp_download_binary",
+          "title": "Safe Binary Download",
+          "description": "Switch transfer mode to binary before retrieving files to prevent corruption of binaries, archives, or keys, and disable prompts for bulk gets.",
+          "commands": [
+            "binary",
+            "prompt off",
+            "mget *",
+            "get local.txt",
+            "!cat local.txt"
+          ]
+        },
+        {
+          "id": "ftp_write_test",
+          "title": "Write Permissions & Web Root Test",
+          "description": "Test write privileges by uploading a probe file, then check port 80/443 to see if the FTP directory maps directly to the web server root.",
+          "commands": [
+            "put test.txt",
+            "curl -s -I http://{target_ip}/test.txt"
+          ]
+        },
+        {
+          "id": "ftp_gtfobins_escape",
+          "title": "GTFOBins Client Shell Breakout",
+          "description": "If operating an interactive FTP client session locally, verify escape mechanisms to spawn a local subshell.",
+          "commands": [
+            "!/bin/sh"
+          ]
+        }
       ]
     },
     {
-      "id": "ftp_download_single",
-      "title": "Download & View Specific Files",
-      "description": "Use Get <local.txt> to download files, or !cat <local.txt> to view a file's contents directly.",
-      "commands": [
-        "get local.txt",
-        "!cat local.txt"
-      ]
-    },
-    {
-      "id": "ftp_upload_payload",
-      "title": "Upload Payload via FTP",
-      "description": "Check write permissions. Can you upload a payload?",
-      "commands": [
-        "put shell.php",
-        "put test.txt"
-      ]
-    },
-    {
-      "id": "ftp_execute_payload",
-      "title": "Execute Uploaded Payload",
-      "description": "If upload was successful, visit the FTP site in a web browser and then activate the payload?",
-      "commands": [
-        "curl http://{target_ip}/shell.php"
-      ]
-    },
-    {
-      "id": "ftp_gtfobins",
-      "title": "GTFObins Shell Escape",
-      "description": "Once logged in try and get a shell (GTFObins). Check if the FTP service itself can be exploited to spawn an interactive shell.",
-      "commands": [
-        "ftp> !/bin/sh"
-      ]
-    },
-    {
-      "id": "ftp_hydra_spray",
-      "title": "Hydra Wordlist Spray",
-      "description": "Run hydra with your specific wordlists to brute-force credentials.",
-      "commands": [
-        "hydra -L /usr/share/wordlists/dirbuster/apache-user-enum-2.0.txt -P /usr/share/wordlists/rockyou.txt ftp://{target_ip}"
-      ]
-    },
-    {
-      "id": "ftp_cme_spray",
-      "title": "CrackMapExec Password Scan",
-      "description": "Run password scans using crackmapexec with custom wordlists.",
-      "commands": [
-        "crackmapexec ftp {target_ip} -u users.txt -p '/home/kali/Desktop/OSCP/Tools/Password cracking/jonspass.txt' --continue-on-success",
-        "crackmapexec ftp {target_ip} -u users.txt -p /usr/share/wordlists/rockyou.txt"
+      "category": "4. Authentication & Password Spraying",
+      "tasks": [
+        {
+          "id": "ftp_cme_spray",
+          "title": "NetExec / CME Password Spray",
+          "description": "Spray known user lists against the FTP service using your custom and standard wordlists.",
+          "commands": [
+            "netexec ftp {target_ip} -u users.txt -p '/home/kali/Desktop/OSCP/Tools/Password cracking/jonspass.txt' --continue-on-success",
+            "netexec ftp {target_ip} -u users.txt -p /usr/share/wordlists/rockyou.txt --continue-on-success"
+          ]
+        },
+        {
+          "id": "ftp_hydra_spray",
+          "title": "Hydra Wordlist Spray",
+          "description": "Multi-threaded brute force against the FTP service using discovered usernames.",
+          "commands": [
+            "hydra -L /usr/share/wordlists/dirbuster/apache-user-enum-2.0.txt -P /usr/share/wordlists/rockyou.txt ftp://{target_ip} -t 4",
+            "hydra -L users.txt -P /usr/share/wordlists/rockyou.txt ftp://{target_ip} -t 4"
+          ]
+        },
+        {
+          "id": "ftp_default_creds",
+          "title": "Common / Default Account Testing",
+          "description": "Quick check for typical vendor defaults, test accounts, and paired credentials.",
+          "commands": [
+            "netexec ftp {target_ip} -u admin -p admin",
+            "netexec ftp {target_ip} -u root -p root",
+            "netexec ftp {target_ip} -u test -p test",
+            "netexec ftp {target_ip} -u ftp -p ftp"
+          ]
+        }
       ]
     }
   ]
