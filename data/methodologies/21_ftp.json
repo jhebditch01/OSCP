@@ -97,6 +97,15 @@
           "commands": [
             "!/bin/sh"
           ]
+        },
+        {
+          "id": "ftp_doc_metadata",
+          "title": "Extract Document Metadata (Usernames)",
+          "description": "Even when downloaded PDFs/Office docs have no useful content, their metadata (Author, Creator, Company) frequently leaks valid usernames or naming conventions for later password spraying.",
+          "commands": [
+            "exiftool *.pdf *.docx *.xlsx",
+            "exiftool -Author -Creator -Company *.pdf | sort -u"
+          ]
         }
       ]
     },

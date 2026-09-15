@@ -22,6 +22,16 @@
             "netexec mysql {target_ip} -u root -p '' --local-auth",
             "netexec mysql {target_ip} -u users.txt -p '/home/kali/Desktop/OSCP/Tools/Password cracking/jonspass.txt' --local-auth"
           ]
+        },
+        {
+          "id": "mysql_xampp_default_creds",
+          "title": "XAMPP Default MySQL Credentials",
+          "description": "XAMPP installs MySQL with an empty root password by default and often stores it in plaintext config on disk. Check these paths if you have file/shell access before spraying.",
+          "commands": [
+            "type C:\\xampp\\mysql\\bin\\my.ini",
+            "type C:\\xampp\\phpMyAdmin\\config.inc.php",
+            "mysql -u root -h {target_ip} --skip-ssl"
+          ]
         }
       ]
     },

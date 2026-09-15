@@ -33,8 +33,8 @@
           "title": "Connect via xfreerdp",
           "description": "Connect to the target with clipboard sharing and drive mounting enabled.",
           "commands": [
-            "xfreerdp3 /v:{target_ip} /u:<username> /p:'<password>' +clipboard /drive:/home/kali/Desktop /dynamic-resolution",
-            "xfreerdp3 /v:{target_ip} /u:<username> /d:<domain> /p:'<password>' +clipboard /dynamic-resolution"
+            "xfreerdp3 /v:{target_ip} /cert:ignore /u:<username> /p:'<password>' +clipboard /drive:/home/kali/Desktop /dynamic-resolution",
+            "xfreerdp3 /v:{target_ip} /cert:ignore /u:<username> /d:<domain> /p:'<password>' +clipboard /dynamic-resolution"
           ]
         },
         {

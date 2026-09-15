@@ -1,0 +1,42 @@
+{
+  "service": "NetBIOS Session Service",
+  "port": 139,
+  "categories": [
+    {
+      "category": "1. Recon (NetBIOS Name Resolution)",
+      "tasks": [
+        {
+          "id": "netbios_nmap",
+          "title": "Nmap NetBIOS Scripts",
+          "description": "139 carries the same SMB protocol as 445 over a legacy NetBIOS session transport — the main extra value here is the NetBIOS name/workgroup info, which can leak the computer name and domain even when 445 is firewalled off.",
+          "commands": [
+            "nmap -sV -p 139 --script nbstat {target_ip}"
+          ]
+        },
+        {
+          "id": "netbios_nbtscan",
+          "title": "NetBIOS Name & Domain Lookup",
+          "description": "Grab the computer name, domain/workgroup, and logged-on user hint directly — useful recon before you've authenticated anywhere.",
+          "commands": [
+            "nbtscan {target_ip}",
+            "nmblookup -A {target_ip}"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "2. Share & Session Enumeration (See SMB / Port 445)",
+      "tasks": [
+        {
+          "id": "netbios_crossref_smb",
+          "title": "Everything Else Lives in the SMB Methodology",
+          "description": "Null sessions, share listing, RPC enumeration, password spraying, and all the lateral-movement/credential-dumping techniques are the same regardless of whether you reach SMB over 139 or 445 — see the SMB (445) page rather than duplicating it here. Just point smbclient/rpcclient at the same IP; it works over either port.",
+          "commands": [
+            "smbclient -L \\\\\\\\{target_ip}\\\\ -N",
+            "enum4linux -a {target_ip}"
+          ]
+        }
+      ]
+    }
+  ]
+}

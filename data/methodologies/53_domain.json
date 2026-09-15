@@ -1,0 +1,63 @@
+{
+  "service": "DNS",
+  "port": 53,
+  "categories": [
+    {
+      "category": "1. Recon & Zone Transfer",
+      "tasks": [
+        {
+          "id": "dns_nmap",
+          "title": "Nmap DNS Scripts",
+          "description": "Fingerprint the DNS server and run default enumeration scripts. Check both TCP and UDP — zone transfers happen over TCP even though normal lookups use UDP.",
+          "commands": [
+            "nmap -sV -p 53 {target_ip}",
+            "nmap -sU -p 53 --script dns-nsid,dns-recursion {target_ip}"
+          ]
+        },
+        {
+          "id": "dns_axfr",
+          "title": "Attempt a Zone Transfer (AXFR)",
+          "description": "The single highest-value DNS misconfiguration to check for: if AXFR is allowed to any client, you get the entire zone file in one shot — every hostname, subdomain, and often internal IP the org has.",
+          "commands": [
+            "dig axfr @{target_ip} <domain>",
+            "dig axfr @{target_ip} <domain> | tee zone_transfer.txt"
+          ]
+        },
+        {
+          "id": "dns_dnsrecon",
+          "title": "Automated Enumeration (dnsrecon)",
+          "description": "Runs zone transfer attempts, standard record lookups, and (optionally) subdomain brute-forcing in one pass.",
+          "commands": [
+            "dnsrecon -d <domain> -n {target_ip}",
+            "dnsrecon -d <domain> -n {target_ip} -D /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt -t brt"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "2. Active Directory DNS (SRV Records)",
+      "tasks": [
+        {
+          "id": "dns_ad_srv_records",
+          "title": "Map AD Roles via SRV Records",
+          "description": "Active Directory registers itself in DNS with SRV records that reveal which hosts are Domain Controllers, Global Catalogs, and PDC emulators — useful for finding every DC in a multi-DC domain without a single credential.",
+          "commands": [
+            "dig SRV _ldap._tcp.dc._msdcs.<domain> @{target_ip}",
+            "dig SRV _kerberos._tcp.dc._msdcs.<domain> @{target_ip}",
+            "dig SRV _gc._tcp.<domain> @{target_ip}",
+            "dig SRV _kpasswd._tcp.<domain> @{target_ip}"
+          ]
+        },
+        {
+          "id": "dns_ad_reverse_lookup",
+          "title": "Reverse Lookup & Full Domain Record Dump",
+          "description": "Pull every A/PTR record the DC's DNS zone holds — often reveals internal hostnames for hosts that don't otherwise announce themselves on the network you can see.",
+          "commands": [
+            "dig -x {target_ip}",
+            "dnsrecon -d <domain> -n {target_ip} -t axfr,srv,soa,ns,mx"
+          ]
+        }
+      ]
+    }
+  ]
+}

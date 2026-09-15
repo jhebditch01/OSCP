@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 from datetime import datetime
@@ -48,6 +49,10 @@ class OSCPChecklistApp(App):
     #notes-container { height: auto; padding: 1 0; border-top: solid $accent; margin-top: 1; display: none; }
     #notes-container.-visible { display: block; }
     #task-notes { height: 10; margin-bottom: 1; }
+    #b64-container { height: auto; padding: 1 0; border-top: solid $accent; margin-top: 1; display: none; }
+    #b64-container.-visible { display: block; }
+    #b64-input, #b64-output { height: 8; margin-bottom: 1; }
+    #b64-button-row { height: 3; margin-bottom: 1; }
     """
 
     BINDINGS = [
@@ -101,6 +106,15 @@ class OSCPChecklistApp(App):
                     yield TextArea(id="task-notes")
                     yield Button("Save Note", id="save-note-btn", variant="primary")
 
+                with Container(id="b64-container"):
+                    yield Label("Input (text or Base64):")
+                    yield TextArea(id="b64-input")
+                    with Horizontal(id="b64-button-row"):
+                        yield Button("Encode →", id="b64-encode-btn", variant="success")
+                        yield Button("← Decode", id="b64-decode-btn", variant="primary")
+                    yield Label("Output:")
+                    yield TextArea(id="b64-output", read_only=True)
+
                 with Horizontal(id="xml-action-bar"):
                     yield Input(placeholder="Path to XML file (e.g., scans/scan.xml)...", id="xml-path-input")
                     yield Button("Analyze XML", id="parse-xml-btn", variant="success")
@@ -134,6 +148,21 @@ class OSCPChecklistApp(App):
                 if self.session and task_id:
                     self.session.mark_completed(task_id, notes=note_text)
                     self.query_one("#notes-label", Label).update("📝 Operational Notes for this Task: [green](Saved!)[/green]")
+        elif event.button.id == "b64-encode-btn":
+            raw_text = self.query_one("#b64-input", TextArea).text
+            output_area = self.query_one("#b64-output", TextArea)
+            try:
+                output_area.text = base64.b64encode(raw_text.encode()).decode()
+            except Exception as e:
+                output_area.text = f"Error: {e}"
+        elif event.button.id == "b64-decode-btn":
+            raw_text = self.query_one("#b64-input", TextArea).text.strip()
+            output_area = self.query_one("#b64-output", TextArea)
+            try:
+                padded = raw_text + "=" * (-len(raw_text) % 4)
+                output_area.text = base64.b64decode(padded).decode(errors="replace")
+            except Exception as e:
+                output_area.text = f"Error: {e}"
 
     def _format_command(self, cmd: str) -> str:
         formatted = cmd.replace('{target_ip}', self.target_ip)
@@ -279,6 +308,7 @@ class OSCPChecklistApp(App):
             "data/post_exploitation_cracking.json",
             "data/post_exploitation_shells.json",
             "data/post_exploitation_cloud.json",
+            "data/post_exploitation_file_transfer.json",
         ]
         for filepath in post_ex_files:
             schema = self.load_json_methodology(filepath)
@@ -292,16 +322,35 @@ class OSCPChecklistApp(App):
             else:
                 post.add_leaf(f"⚠️ Missing {filepath}")
 
+        links = tree.root.add("4. Useful Links & Tools", expand=False)
+
+        b64_leaf = links.add_leaf("🔐 Base64 Encoder / Decoder")
+        b64_leaf.data = {"id": "tool_base64", "title": "Base64 Encoder / Decoder", "tool": "base64"}
+
+        links_schema = self.load_json_methodology("data/useful_links.json")
+        if links_schema and "categories" in links_schema:
+            for cat in links_schema["categories"]:
+                cat_node = links.add(cat.get("category", "Category"), expand=False)
+                for t in cat.get("tasks", []):
+                    self._add_task_leaf(cat_node, t)
+
     def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
         data = getattr(event.node, "data", None)
         md = self.query_one("#task-view", Markdown)
         notes_container = self.query_one("#notes-container", Container)
         text_area = self.query_one("#task-notes", TextArea)
         notes_label = self.query_one("#notes-label", Label)
-        
+        b64_container = self.query_one("#b64-container", Container)
+
         notes_label.update("📝 Operational Notes for this Task:")
-        
-        if data and isinstance(data, dict):
+        b64_container.remove_class("-visible")
+
+        if data and isinstance(data, dict) and data.get("tool") == "base64":
+            self.current_task_data = None
+            md.update("# 🔐 Base64 Encoder / Decoder\n\nPaste text or Base64 into the box below, then Encode or Decode.")
+            notes_container.remove_class("-visible")
+            b64_container.add_class("-visible")
+        elif data and isinstance(data, dict):
             self.current_task_data = data
             task_id = data.get("id")
             md.update(self._render_task_markdown(data))

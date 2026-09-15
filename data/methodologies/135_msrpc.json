@@ -1,0 +1,42 @@
+{
+  "service": "MSRPC",
+  "port": 135,
+  "categories": [
+    {
+      "category": "1. Recon & Endpoint Enumeration",
+      "tasks": [
+        {
+          "id": "msrpc_nmap",
+          "title": "Nmap MSRPC Scripts",
+          "description": "135 is the DCE/RPC endpoint mapper — it doesn't do much itself, but tells you which RPC-registered services are actually available and on what dynamic port.",
+          "commands": [
+            "nmap -sV -p 135 --script msrpc-enum {target_ip}"
+          ]
+        },
+        {
+          "id": "msrpc_rpcdump",
+          "title": "Enumerate Registered RPC Interfaces",
+          "description": "Full list of every RPC interface the host exposes (often reveals which services are running even when their normal ports look closed/filtered from the outside).",
+          "commands": [
+            "impacket-rpcdump {target_ip}",
+            "rpcdump.py {target_ip} | grep -B2 'ncacn_ip_tcp'"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "2. Related Techniques (Live on Other Pages)",
+      "tasks": [
+        {
+          "id": "msrpc_crossref",
+          "title": "What Actually Uses This Port",
+          "description": "135 rarely matters in isolation — it's the entry point for several techniques documented in more detail elsewhere. wmiexec/dcomexec (Impacket) use it for command execution over WMI/DCOM, and coercion attacks (PetitPotam, PrinterBug) use it to trigger the target's own machine account to authenticate back to you via MS-EFSRPC/MS-RPRN. See the SMB (445) methodology and the Active Directory Post-Exploitation section for the full attack chains.",
+          "commands": [
+            "impacket-wmiexec <domain>/<user>:<password>@{target_ip}",
+            "impacket-dcomexec <domain>/<user>:<password>@{target_ip}"
+          ]
+        }
+      ]
+    }
+  ]
+}
