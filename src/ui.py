@@ -2,7 +2,7 @@ import json
 import os
 from datetime import datetime
 from textual.app import App, ComposeResult
-from textual.containers import Container, Horizontal, VerticalScroll
+from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Footer, Header, Input, Markdown, Static, Tree, Select, TextArea, Label
 
 # Safely import the SessionManager from storage.py
@@ -35,7 +35,12 @@ class OSCPChecklistApp(App):
     
     #main-content { width: 65%; height: 100%; padding: 1 2; }
     
-    #kali-ip-input { width: 20; }
+    #target-setup-row1 { height: 3; margin-bottom: 1; }
+    #target-setup-row2 { height: auto; }
+    #ip-input, #lab-input, #kali-ip-input { width: 1fr; margin-right: 1; }
+    #load-btn { width: auto; }
+    #session-select { width: 1fr; margin-right: 1; }
+    #report-btn { width: auto; }
     #target-banner { height: 3; content-align: center middle; background: $primary-background; border-bottom: solid$accent; text-style: bold; }
     #xml-action-bar { height: auto; padding: 1 0; margin-top: 1; border-top: solid $accent; }
     #xml-path-input { width: 75%; }
@@ -64,21 +69,23 @@ class OSCPChecklistApp(App):
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
 
-        with Horizontal(id="target-setup"):
-            yield Input(placeholder="Target IP (10.10.10.15)...", id="ip-input", value=self.target_ip)
-            yield Input(placeholder="Lab Name (e.g. ALICE)...", id="lab-input")
-            yield Input(placeholder="Kali IP...", id="kali-ip-input", value=self.kali_ip)
-            yield Button("Load / Create", id="load-btn", variant="primary")
-            
-            session_options = []
-            if SessionManager:
-                session_options = [
-                    (f"{s['name']} - {s['ip']}", s['session_id']) 
-                    for s in SessionManager.list_active_sessions()
-                ]
-            
-            yield Select(options=session_options, prompt="Resume Session...", id="session-select")
-            yield Button("Live Report (v)", id="report-btn", variant="warning")
+        with Vertical(id="target-setup"):
+            with Horizontal(id="target-setup-row1"):
+                yield Input(placeholder="Target IP (10.10.10.15)...", id="ip-input", value=self.target_ip)
+                yield Input(placeholder="Lab Name (e.g. ALICE)...", id="lab-input")
+                yield Input(placeholder="Kali IP...", id="kali-ip-input", value=self.kali_ip)
+                yield Button("Load / Create", id="load-btn", variant="primary")
+
+            with Horizontal(id="target-setup-row2"):
+                session_options = []
+                if SessionManager:
+                    session_options = [
+                        (f"{s['name']} - {s['ip']}", s['session_id'])
+                        for s in SessionManager.list_active_sessions()
+                    ]
+
+                yield Select(options=session_options, prompt="Resume Session...", id="session-select")
+                yield Button("Live Report (v)", id="report-btn", variant="warning")
 
         with Horizontal(id="workspace"):
             with Container(id="sidebar"):
