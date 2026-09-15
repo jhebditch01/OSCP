@@ -1,0 +1,34 @@
+{
+  "service": "RPCBind / Portmapper",
+  "port": 111,
+  "categories": [
+    {
+      "category": "1. Recon",
+      "tasks": [
+        {
+          "id": "rpcbind_nmap",
+          "title": "Nmap RPC Scripts",
+          "description": "Portmapper on 111 itself rarely matters, but it tells you which RPC-registered services (NFS, NIS, rpc.statd) are actually running and on what port.",
+          "commands": [
+            "nmap -sV -p 111 --script rpcinfo {target_ip}",
+            "rpcinfo -p {target_ip}"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "2. Pivot to NFS",
+      "tasks": [
+        {
+          "id": "rpcbind_to_nfs",
+          "title": "Confirm NFS Registration",
+          "description": "If 'nfs' or 'mountd' shows up in the rpcinfo output, move straight to the NFS methodology (port 2049) to enumerate and mount exports.",
+          "commands": [
+            "rpcinfo -p {target_ip} | grep -i nfs",
+            "showmount -e {target_ip}"
+          ]
+        }
+      ]
+    }
+  ]
+}

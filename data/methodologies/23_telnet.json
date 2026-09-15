@@ -1,0 +1,42 @@
+{
+  "service": "Telnet",
+  "port": 23,
+  "categories": [
+    {
+      "category": "1. Recon",
+      "tasks": [
+        {
+          "id": "telnet_banner",
+          "title": "Banner Grab",
+          "description": "The pre-login banner frequently reveals the device type/OS (routers, switches, old *nix boxes are common offenders).",
+          "commands": [
+            "nc -nv {target_ip} 23",
+            "nmap -sV -p 23 --script telnet-encryption,banner {target_ip}"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "2. Authentication",
+      "tasks": [
+        {
+          "id": "telnet_default_creds",
+          "title": "Default / Common Credentials",
+          "description": "Telnet is almost always left on legacy or embedded devices with weak/default credentials -- try the obvious ones before brute-forcing.",
+          "commands": [
+            "telnet {target_ip}",
+            "# Try: admin/admin, root/root, admin/password, cisco/cisco"
+          ]
+        },
+        {
+          "id": "telnet_hydra_spray",
+          "title": "Hydra Wordlist Brute-Force",
+          "description": "Cleartext protocol, so credential spraying is fast and reliable to script.",
+          "commands": [
+            "hydra -L users.txt -P /usr/share/wordlists/rockyou.txt telnet://{target_ip}"
+          ]
+        }
+      ]
+    }
+  ]
+}

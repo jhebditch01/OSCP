@@ -188,6 +188,14 @@ class OSCPChecklistApp(App):
         except json.JSONDecodeError:
             return None
 
+    def _resolve_methodology_path(self, port: str, svc: str) -> str:
+        exact_path = f"data/methodologies/{port}_{svc}.json"
+        if os.path.exists(exact_path):
+            return exact_path
+        if "http" in svc:
+            return "data/methodologies/generic_http.json"
+        return exact_path
+
     def load_target(self, ip_address: str) -> None:
         self.target_ip = ip_address
         self.query_one("#target-banner", Static).update(f"🎯 Target: {self.target_ip} | 🖥️ OS: {self.target_os}")
@@ -247,8 +255,8 @@ class OSCPChecklistApp(App):
                     svc = "smb"
                 
                 node = services.add(f"Port {port} ({svc.upper()})", expand=True)
-                schema = self.load_json_methodology(f"data/methodologies/{port}_{svc}.json")
-                
+                schema = self.load_json_methodology(self._resolve_methodology_path(port, svc))
+
                 if schema:
                     if "categories" in schema:
                         for cat in schema["categories"]:

