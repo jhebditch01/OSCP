@@ -35,6 +35,7 @@ class OSCPChecklistApp(App):
     
     #main-content { width: 65%; height: 100%; padding: 1 2; }
     
+    #kali-ip-input { width: 20; }
     #target-banner { height: 3; content-align: center middle; background: $primary-background; border-bottom: solid$accent; text-style: bold; }
     #xml-action-bar { height: auto; padding: 1 0; margin-top: 1; border-top: solid $accent; }
     #xml-path-input { width: 75%; }
@@ -50,13 +51,15 @@ class OSCPChecklistApp(App):
         ("r", "generate_report", "Generate Report"),
     ]
 
-    def __init__(self, target_ip=None, scan_path=None):
+    def __init__(self, target_ip=None, scan_path=None, kali_ip=None):
         super().__init__()
         self.target_ip = target_ip or "10.10.10.15"
         self.target_os = "Unknown OS"
         self.ports_data = []
         self.session = None
         self.scan_path = scan_path
+        self.kali_ip = kali_ip or ""
+        self.current_task_data = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -64,6 +67,7 @@ class OSCPChecklistApp(App):
         with Horizontal(id="target-setup"):
             yield Input(placeholder="Target IP (10.10.10.15)...", id="ip-input", value=self.target_ip)
             yield Input(placeholder="Lab Name (e.g. ALICE)...", id="lab-input")
+            yield Input(placeholder="Kali IP...", id="kali-ip-input", value=self.kali_ip)
             yield Button("Load / Create", id="load-btn", variant="primary")
             
             session_options = []
@@ -123,6 +127,13 @@ class OSCPChecklistApp(App):
                 if self.session and task_id:
                     self.session.mark_completed(task_id, notes=note_text)
                     self.query_one("#notes-label", Label).update("📝 Operational Notes for this Task: [green](Saved!)[/green]")
+
+    def _format_command(self, cmd: str) -> str:
+        formatted = cmd.replace('{target_ip}', self.target_ip)
+        if self.kali_ip:
+            for placeholder in ("<Kali_IP>", "<kali_IP>", "<attacker_ip>", "<Attacker_IP>"):
+                formatted = formatted.replace(placeholder, self.kali_ip)
+        return formatted
 
     def _generate_ports_table(self) -> str:
         if not self.ports_data:
@@ -276,19 +287,9 @@ class OSCPChecklistApp(App):
         notes_label.update("📝 Operational Notes for this Task:")
         
         if data and isinstance(data, dict):
+            self.current_task_data = data
             task_id = data.get("id")
-            content = f"# {data.get('title', 'Task')}\n\n"
-            
-            if data.get("description"):
-                content += f"*{data.get('description')}*\n\n"
-                
-            content += "### Commands:\n\n```bash\n"
-            for cmd in data.get("commands", []):
-                formatted_cmd = cmd.replace('{target_ip}', self.target_ip)
-                content += f"{formatted_cmd}\n"
-            content += "```\n"
-            content += "---\n*Press `c` to toggle completion status.*"
-            md.update(content)
+            md.update(self._render_task_markdown(data))
 
             notes_container.add_class("-visible")
             if self.session and task_id and task_id in self.session.state.get("notes", {}):
@@ -296,9 +297,30 @@ class OSCPChecklistApp(App):
             else:
                 text_area.text = ""
         else:
+            self.current_task_data = None
             label = str(event.node.label).replace("[ ] ", "").replace("[X] ", "")
             md.update(f"# Category: {label}\n\nTarget IP: `{self.target_ip}`\nSelect a sub-task to view executable commands.")
             notes_container.remove_class("-visible")
+
+    def _render_task_markdown(self, data: dict) -> str:
+        content = f"# {data.get('title', 'Task')}\n\n"
+
+        if data.get("description"):
+            content += f"*{data.get('description')}*\n\n"
+
+        content += "### Commands:\n\n```bash\n"
+        for cmd in data.get("commands", []):
+            content += f"{self._format_command(cmd)}\n"
+        content += "```\n"
+        content += "---\n*Press `c` to toggle completion status.*"
+        return content
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id == "kali-ip-input":
+            self.kali_ip = event.value.strip()
+            if self.current_task_data:
+                md = self.query_one("#task-view", Markdown)
+                md.update(self._render_task_markdown(self.current_task_data))
 
     def action_toggle_complete(self) -> None:
         tree = self.query_one("#checklist-tree", Tree)
@@ -339,7 +361,7 @@ class OSCPChecklistApp(App):
                     # Output keeps the standard block format for the final report
                     report_lines.append("```bash")
                     for cmd in node.data.get("commands", []):
-                        report_lines.append(cmd.replace("{target_ip}", self.target_ip))
+                        report_lines.append(self._format_command(cmd))
                     report_lines.append("```")
                 report_lines.append("")
             for child in node.children:
