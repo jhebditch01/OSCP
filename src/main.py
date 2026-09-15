@@ -28,7 +28,7 @@ def main():
   args = parser.parse_args()
 
   # Launch the Textual UI Application
-  app = OSCPChecklistApp(target_ip=args.target)
+  app = OSCPChecklistApp(target_ip=args.target, scan_path=args.scan)
   app.run()
 
 

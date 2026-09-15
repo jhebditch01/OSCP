@@ -14,6 +14,7 @@ class NmapParser:
             root = tree.getroot()
 
             target_ip = "Unknown Target"
+            target_os = "Unknown OS"
             ports_data = []
 
             # Find host IP address
@@ -24,6 +25,11 @@ class NmapParser:
             address = host.find("address[@addrtype='ipv4']")
             if address is not None:
                 target_ip = address.get("addr")
+
+            # Extract OS Match if available (-O or -A was used)
+            os_match = host.find(".//osmatch")
+            if os_match is not None:
+                target_os = os_match.get("name", "Unknown OS")
 
             # Extract open ports and service names
             for port_elem in host.findall(".//port"):
@@ -40,6 +46,7 @@ class NmapParser:
 
             return {
                 "ip": target_ip,
+                "os": target_os,
                 "ports": ports_data
             }
         except Exception:

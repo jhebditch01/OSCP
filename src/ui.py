@@ -1,7 +1,6 @@
 import json
 import os
 from datetime import datetime
-import xml.etree.ElementTree as ET
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, VerticalScroll
 from textual.widgets import Button, Footer, Header, Input, Markdown, Static, Tree, Select, TextArea, Label
@@ -15,43 +14,12 @@ except ImportError:
     except ImportError:
         SessionManager = None
 
-class NmapParser:
-    """Parses Nmap XML output (-oX) into structured Python dictionaries."""
-    @staticmethod
-    def parse_xml(xml_path: str):
-        if not os.path.exists(xml_path):
-            return None
-        try:
-            tree = ET.parse(xml_path)
-            root = tree.getroot()
-            target_ip = "Unknown Target"
-            target_os = "Unknown OS"
-            ports_data = []
+# Safely import the shared NmapParser from parser.py
+try:
+    from src.parser import NmapParser
+except ImportError:
+    from parser import NmapParser
 
-            host = root.find("host")
-            if host is not None:
-                # Extract IP Address
-                address = host.find("address[@addrtype='ipv4']")
-                if address is not None:
-                    target_ip = address.get("addr")
-
-                # Extract OS Match if available (-O or -A was used)
-                os_match = host.find(".//osmatch")
-                if os_match is not None:
-                    target_os = os_match.get("name", "Unknown OS")
-
-                # Extract open ports and services
-                for port_elem in host.findall(".//port"):
-                    state_elem = port_elem.find("state")
-                    if state_elem is not None and state_elem.get("state") == "open":
-                        port_id = port_elem.get("portid")
-                        service_elem = port_elem.find("service")
-                        service_name = service_elem.get("name", "unknown") if service_elem is not None else "unknown"
-                        ports_data.append({"port": port_id, "service": service_name})
-
-            return {"ip": target_ip, "os": target_os, "ports": ports_data}
-        except Exception:
-            return None
 
 class OSCPChecklistApp(App):
     """Interactive TUI for OSCP Methodology, Nmap Parsing, and Report Generation."""
@@ -82,12 +50,13 @@ class OSCPChecklistApp(App):
         ("r", "generate_report", "Generate Report"),
     ]
 
-    def __init__(self, target_ip=None):
+    def __init__(self, target_ip=None, scan_path=None):
         super().__init__()
         self.target_ip = target_ip or "10.10.10.15"
         self.target_os = "Unknown OS"
         self.ports_data = []
         self.session = None
+        self.scan_path = scan_path
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -129,6 +98,9 @@ class OSCPChecklistApp(App):
     def on_mount(self) -> None:
         if self.target_ip:
             self.load_target(self.target_ip)
+        if self.scan_path:
+            self.query_one("#xml-path-input", Input).value = self.scan_path
+            self.process_xml_input()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "load-btn":
@@ -145,7 +117,7 @@ class OSCPChecklistApp(App):
         elif event.button.id == "save-note-btn":
             tree = self.query_one("#checklist-tree", Tree)
             node = tree.cursor_node
-            if node and hasattr(node, "data"):
+            if node and isinstance(node.data, dict):
                 task_id = node.data.get("id")
                 note_text = self.query_one("#task-notes", TextArea).text
                 if self.session and task_id:
@@ -274,28 +246,22 @@ class OSCPChecklistApp(App):
 
         post = tree.root.add("3. Post-Exploitation", expand=False)
 
-        win_schema = self.load_json_methodology("data/post_exploitation_windows.json")
-        if win_schema and "os_environments" in win_schema:
-            for env in win_schema["os_environments"]:
-                env_node = post.add(env.get("os", "Environment"), expand=False)
-                for cat in env.get("categories", []):
-                    cat_node = env_node.add(cat.get("category", "Category"), expand=False)
-                    for t in cat.get("tasks", []):
-                        self._add_task_leaf(cat_node, t)
-        else:
-            post.add_leaf("⚠️ Missing data/post_exploitation_windows.json")
-
-        # Load Linux Post-Exploitation
-        lin_schema = self.load_json_methodology("data/post_exploitation_linux.json")
-        if lin_schema and "os_environments" in lin_schema:
-            for env in lin_schema["os_environments"]:
-                env_node = post.add(env.get("os", "Environment"), expand=False)
-                for cat in env.get("categories", []):
-                    cat_node = env_node.add(cat.get("category", "Category"), expand=False)
-                    for t in cat.get("tasks", []):
-                        self._add_task_leaf(cat_node, t)
-        else:
-            post.add_leaf("⚠️ Missing data/post_exploitation_linux.json")
+        post_ex_files = [
+            "data/post_exploitation_windows.json",
+            "data/post_exploitation_linux.json",
+            "data/post_exploitation_pivoting.json",
+        ]
+        for filepath in post_ex_files:
+            schema = self.load_json_methodology(filepath)
+            if schema and "os_environments" in schema:
+                for env in schema["os_environments"]:
+                    env_node = post.add(env.get("os", "Environment"), expand=False)
+                    for cat in env.get("categories", []):
+                        cat_node = env_node.add(cat.get("category", "Category"), expand=False)
+                        for t in cat.get("tasks", []):
+                            self._add_task_leaf(cat_node, t)
+            else:
+                post.add_leaf(f"⚠️ Missing {filepath}")
 
     def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
         data = getattr(event.node, "data", None)
@@ -313,11 +279,11 @@ class OSCPChecklistApp(App):
             if data.get("description"):
                 content += f"*{data.get('description')}*\n\n"
                 
-            # Formatting changed here: using wrapped inline code bullets instead of ``` blocks
-            content += "### Commands:\n\n"
+            content += "### Commands:\n\n```bash\n"
             for cmd in data.get("commands", []):
                 formatted_cmd = cmd.replace('{target_ip}', self.target_ip)
-                content += f"- `{formatted_cmd}`\n\n"
+                content += f"{formatted_cmd}\n"
+            content += "```\n"
             content += "---\n*Press `c` to toggle completion status.*"
             md.update(content)
 
@@ -334,7 +300,7 @@ class OSCPChecklistApp(App):
     def action_toggle_complete(self) -> None:
         tree = self.query_one("#checklist-tree", Tree)
         node = tree.cursor_node
-        if node and node.is_leaf and hasattr(node, "data"):
+        if node and not node.children and isinstance(node.data, dict):
             label = str(node.label)
             task_id = node.data.get("id")
             
@@ -345,7 +311,10 @@ class OSCPChecklistApp(App):
                     self.session.mark_completed(task_id, notes=current_notes)
                     
             elif label.startswith("[X]"):
-                clean = label.replace("[X] [line-through]", "").replace("[/line-through]", "").strip()
+                # Rich markup like [line-through] is consumed into styling during
+                # rendering, so str(node.label) never contains those tags as text —
+                # only the literal "[X] " prefix needs stripping here.
+                clean = label[4:].strip()
                 node.set_label(f"[ ] {clean}")
                 if self.session and task_id:
                     self.session.remove_completed(task_id)
@@ -361,9 +330,9 @@ class OSCPChecklistApp(App):
 
         def parse_completed(node):
             if not node.children and str(node.label).startswith("[X]"):
-                title = str(node.label).replace("[X] [line-through]", "").replace("[/line-through]", "").strip()
+                title = str(node.label)[4:].strip()
                 report_lines.append(f"### {title}")
-                if hasattr(node, "data") and isinstance(node.data, dict):
+                if isinstance(node.data, dict):
                     # Output keeps the standard block format for the final report
                     report_lines.append("```bash")
                     for cmd in node.data.get("commands", []):
