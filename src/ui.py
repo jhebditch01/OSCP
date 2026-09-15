@@ -323,10 +323,12 @@ class OSCPChecklistApp(App):
         if data.get("description"):
             content += f"*{data.get('description')}*\n\n"
 
-        content += "### Commands:\n\n```bash\n"
+        content += "### Commands:\n\n"
         for cmd in data.get("commands", []):
-            content += f"{self._format_command(cmd)}\n"
-        content += "```\n"
+            # A bullet list wraps long commands instead of clipping them: Markdown
+            # code fences in Textual scroll horizontally with a zero-size hidden
+            # scrollbar, so anything past the visible width is silently cut off.
+            content += f"- {self._format_command(cmd)}\n"
         content += "---\n*Press `c` to toggle completion status.*"
         return content
 
