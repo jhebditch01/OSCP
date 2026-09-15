@@ -250,6 +250,9 @@ class OSCPChecklistApp(App):
             "data/post_exploitation_windows.json",
             "data/post_exploitation_linux.json",
             "data/post_exploitation_pivoting.json",
+            "data/post_exploitation_cracking.json",
+            "data/post_exploitation_shells.json",
+            "data/post_exploitation_cloud.json",
         ]
         for filepath in post_ex_files:
             schema = self.load_json_methodology(filepath)
